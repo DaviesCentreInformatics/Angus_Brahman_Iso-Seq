@@ -1,0 +1,347 @@
+---
+title: "differential transcript usage"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(readr)
+library(tibble)
+library(DRIMSeq)
+library(tidyr)
+library(ggplot2)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+# read the count data
+```{r}
+associated_isoform_counts_with_novel_afterfilter <- readRDS("associated_isoform_counts_with_novel_afterfilter.rds")
+associated_isoform_counts_afterfilter <- readRDS("associated_isoform_counts_afterfilter.rds")
+```
+
+# read the meta data
+```{r}
+sampleinfo<- read.csv("sampleinfo.csv")
+sampleinfo$Fetus_ID <- paste0("FL","",sampleinfo$Fetus_ID)
+sampleinfo$Fetus_ID <- gsub("77","7", sampleinfo$Fetus_ID)
+
+sampleinfo$phenotype <- gsub("Bi","Brahman",sampleinfo$Cross)
+sampleinfo$phenotype <- gsub("Bt","Angus",sampleinfo$phenotype)
+```
+
+```{r}
+#Brahman pre-SQANTI 
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/"
+classification <- read.delim(file.path(Dir,"hq.5merge.collapsed_classification.filtered_lite_classification.txt"),
+                             stringsAsFactors = FALSE)
+
+Pacbio_ID2gene <- classification %>%dplyr::select(isoform,associated_gene)
+associated_transcript2gene <- classification %>%dplyr::select(associated_transcript,associated_gene)
+
+# select for know transcript only
+associated_transcript2gene <- subset(associated_transcript2gene, associated_transcript %!in% "novel") %>% 
+  unique()
+
+gene_gene <- associated_transcript2gene[grep("_",associated_transcript2gene$associated_gene),]$associated_gene
+associated_transcript2gene <- subset(associated_transcript2gene, associated_gene %!in% c(gene_gene))
+
+associated_transcript2gene$associated_transcript %>% duplicated() %>% table() # no duplication
+```
+
+
+```{r}
+# join the Pacbio_ID2gene
+associated_isoform_counts_with_novel_afterfilter <- associated_isoform_counts_with_novel_afterfilter %>%
+  rownames_to_column("feature_id") %>%
+  left_join(Pacbio_ID2gene, by = c("feature_id" = "isoform"))
+
+# join the associated_transcript2gene
+associated_isoform_counts_with_novel_afterfilter%<>%
+  left_join(associated_transcript2gene, by = c("feature_id" = "associated_transcript"))
+
+# when associated_gene.x is na then use associated_gene.y
+associated_isoform_counts_with_novel_afterfilter$associated_gene.x[is.na(associated_isoform_counts_with_novel_afterfilter$associated_gene.x)] <- associated_isoform_counts_with_novel_afterfilter$associated_gene.y[is.na(associated_isoform_counts_with_novel_afterfilter$associated_gene.x)]
+
+
+associated_isoform_counts_with_novel_afterfilter <- associated_isoform_counts_with_novel_afterfilter %>%dplyr::select(feature_id,associated_gene.x, FL22, FL99, FL65, FL7, FL60, FL53)
+colnames(associated_isoform_counts_with_novel_afterfilter) %<>% gsub("associated_gene.x","gene_id",.)
+
+# filter the na in the gene_id
+associated_isoform_counts_with_novel_afterfilter <- drop_na(associated_isoform_counts_with_novel_afterfilter)
+
+```
+# differential transcript usage
+## create DSdmDSdata
+```{r}
+sampleinfo <- data.frame(sample_id = sampleinfo$Fetus_ID, 
+  group = sampleinfo$phenotype)
+
+sampleinfo$group <- as.factor(sampleinfo$group)
+sampleinfo$sample_id <- as.factor(sampleinfo$sample_id)
+
+levels(sampleinfo$group)
+
+d <- dmDSdata(counts = associated_isoform_counts_with_novel_afterfilter, samples = sampleinfo)
+d
+head(counts(d))
+head(samples(d))
+```
+```{r}
+plotData(d)
+```
+# DSdmFilter
+```{r}
+# check the group
+table(samples(d)$group)
+
+d <- dmFilter(d, min_samps_gene_expr = 3, min_samps_feature_expr = 3, min_feature_expr = 10)
+```
+```{r}
+## Create the design matrix
+design_full <- model.matrix(~ group, data = samples(d))
+design_full
+```
+```{r}
+## To make the analysis reproducible
+set.seed(32)
+## Calculate precision
+d <- dmPrecision(d, design = design_full)
+d
+head(mean_expression(d), 3)
+common_precision(d)
+head(genewise_precision(d))
+```
+
+```{r}
+## DSdmPrecision_plot2
+ggp <- plotPrecision(d)
+ggp + geom_point(size = 4)
+```
+
+```{r}
+## DSdmFit
+d <- dmFit(d, design = design_full, verbose = 1)
+d
+
+## Get fitted proportions
+head(proportions(d))
+## Get the DM regression coefficients (gene-level) 
+head(coefficients(d))
+## Get the BB regression coefficients (feature-level) 
+head(coefficients(d), level = "feature")
+
+```
+
+```{r}
+## Fit null model proportions and perform the LR test to detect DTU
+d <- dmTest(d, coef = "groupBrahman", verbose = 1)
+design(d)
+
+results(d) %>%
+  dplyr::filter(adj_pvalue < 0.05) %>%
+  arrange(adj_pvalue)
+```
+ 
+ 
+
+
+```{r}
+plotPValues(d)
+```
+
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[1]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[2]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[3]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[4]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[5]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[6]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[7]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[8]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[9]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[10]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[11]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[12]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[13]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[14]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[15]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[16]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[17]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[18]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[19]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[20]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+``` 
+
+
+```{r}
+res <- res[order(res$pvalue, decreasing = FALSE), ]
+
+top_gene_id <- res$gene_id[1]
+
+plotProportions(d, gene_id = top_gene_id, group_variable = "group")
+
+plotProportions(d, gene_id = top_gene_id, group_variable = "group", 
+  plot_type = "lineplot")
+
+plotProportions(d, gene_id = top_gene_id, group_variable = "group", 
+  plot_type = "ribbonplot")
+
+```
+
+# sessionInfo
+```{r}
+sessionInfo()
+```
+
