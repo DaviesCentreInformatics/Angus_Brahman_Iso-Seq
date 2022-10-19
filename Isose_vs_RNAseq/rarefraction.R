@@ -1,5 +1,5 @@
 #------------------------------------------------------
-# Program name: IsoSeq_rarefraction.R
+# Program name: rarefraction.R
 # Objective: Code for rarefraction from Isoseq   
 #          full length counts
 # Author: Lloyd
