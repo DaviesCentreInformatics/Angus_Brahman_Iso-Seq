@@ -1,0 +1,317 @@
+---
+title: "Correlation matrix"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(readr)
+library(ggcorrplot)
+library(biomaRt)
+library(tibble)
+library(ThreeDRNAseq)
+```
+
+# Correlation plots
+## Gene
+### pre filter
+```{r}
+setwd("~/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Lloyd_RNAseq_cattle_R")
+```
+
+```{r}
+RfeatureCounts_Gene_counts <- readRDS("RfeatureCounts_gene_results_prefilter.rds")
+RfeatureCounts_Gene_counts <- RfeatureCounts_Gene_counts$counts %>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+```
+
+```{r}
+isoseq_Gene_counts <- read_rds("associated_gene_counts_prefilter.rds")
+isoseq_Gene_counts <- isoseq_Gene_counts%>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+
+isoseq_RfeatureCounts_Gene <- left_join(isoseq_Gene_counts, RfeatureCounts_Gene_counts)
+isoseq_RfeatureCounts_Gene %<>% column_to_rownames("Gene")
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub(".sorted.bam","",.)
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub("_.*","",.)
+ 
+
+colnames(isoseq_RfeatureCounts_Gene)[7:12] <- paste0("SR","",colnames(isoseq_RfeatureCounts_Gene)[7:12])
+
+LEVEL <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR99","SR65","SR53","SR60","SR7")
+
+corr <- cor(tidyr::drop_na(isoseq_RfeatureCounts_Gene), use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (no novel, prefilter)")
+```
+### after filter
+```{r}
+RfeatureCounts_Gene_counts <- readRDS("RfeatureCounts_gene_results_afterfilter.rds")
+RfeatureCounts_Gene_counts <- RfeatureCounts_Gene_counts$counts %>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+```
+
+```{r}
+isoseq_Gene_counts <- read_rds("associated_gene_counts_afterfilter.rds")
+isoseq_Gene_counts <- isoseq_Gene_counts%>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+
+isoseq_RfeatureCounts_Gene <- left_join(isoseq_Gene_counts, RfeatureCounts_Gene_counts)
+isoseq_RfeatureCounts_Gene %<>% column_to_rownames("Gene")
+
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub(".sorted.bam","",.)
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub("_.*","",.)
+
+colnames(isoseq_RfeatureCounts_Gene)[7:12] <- paste0("SR","",colnames(isoseq_RfeatureCounts_Gene)[7:12])
+
+corr <- cor(tidyr::drop_na(isoseq_RfeatureCounts_Gene), use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+rownames(corr) <- rownames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+colnames(corr) <- colnames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (no novel, afterfilter)")
+```
+
+
+```{r}
+isoseq_Gene_counts <- read_rds("associated_gene_counts_with_novel_prefilter.rds")
+isoseq_Gene_counts <- isoseq_Gene_counts%>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+
+isoseq_RfeatureCounts_Gene <- left_join(isoseq_Gene_counts, RfeatureCounts_Gene_counts)
+isoseq_RfeatureCounts_Gene %<>% column_to_rownames("Gene")
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub(".sorted.bam","",.)
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub("_.*","",.)
+ 
+
+colnames(isoseq_RfeatureCounts_Gene)[7:12] <- paste0("SR","",colnames(isoseq_RfeatureCounts_Gene)[7:12])
+
+LEVEL <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR99","SR65","SR53","SR60","SR7")
+
+corr <- cor(tidyr::drop_na(isoseq_RfeatureCounts_Gene), use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+rownames(corr) <- rownames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+colnames(corr) <- colnames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (with novel, prefilter)")
+```
+
+```{r}
+isoseq_RfeatureCounts_Novel_Gene <- isoseq_RfeatureCounts_Gene[rownames(isoseq_RfeatureCounts_Gene) %>% grep("PB",.),]
+
+corr <- cor(isoseq_RfeatureCounts_Novel_Gene, use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (novel only, prefilter)")
+```
+
+
+```{r}
+isoseq_Gene_counts <- read_rds("associated_gene_counts_with_novel_afterfilter.rds")
+isoseq_Gene_counts <- isoseq_Gene_counts%>%
+  as.data.frame() %>%
+  rownames_to_column("Gene")
+
+isoseq_RfeatureCounts_Gene <- left_join(isoseq_Gene_counts, RfeatureCounts_Gene_counts)
+isoseq_RfeatureCounts_Gene %<>% column_to_rownames("Gene")
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub(".sorted.bam","",.)
+colnames(isoseq_RfeatureCounts_Gene) %<>% gsub("_.*","",.)
+ 
+
+colnames(isoseq_RfeatureCounts_Gene)[7:12] <- paste0("SR","",colnames(isoseq_RfeatureCounts_Gene)[7:12])
+
+LEVEL <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR99","SR65","SR53","SR60","SR7")
+
+corr <- cor(tidyr::drop_na(isoseq_RfeatureCounts_Gene), use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+rownames(corr) <- rownames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+colnames(corr) <- colnames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (with novel, afterfilter)")
+```
+
+```{r}
+isoseq_RfeatureCounts_Novel_Gene <- isoseq_RfeatureCounts_Gene[rownames(isoseq_RfeatureCounts_Gene) %>% grep("PB",.),]
+
+corr <- cor(tidyr::drop_na(isoseq_RfeatureCounts_Novel_Gene), use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for gene level (novel only, afterfilter)")
+```
+
+## Transcripts
+### isoseq_vs_kallisto
+#### prefilter
+```{r}
+kallisto_transcript_TPM <- readRDS("kallisto_transcript_TPM.rds") %>% as.data.frame()
+```
+
+```{r}
+associated_isoform_TPM_with_novel_prefilter <- read_rds("associated_isoform_TPM_with_novel_prefilter.rds")
+
+associated_isoform_TPM_with_novel_prefilter %<>%
+  rownames_to_column("ID")
+```
+
+```{r}
+isoseq_kallisto_isoform <- left_join(associated_isoform_TPM_with_novel_prefilter, kallisto_transcript_TPM)
+isoseq_kallisto_isoform %<>% column_to_rownames("ID")
+
+LEVEL <- c("FL22_TPM","FL99_TPM","FL65_TPM","FL53_TPM","FL60_TPM","FL7_TPM","SR22","SR99","SR65","SR53","SR60","SR7")
+
+#p.mat <- cor_pmat(new_counts_TPM)
+corr <- cor(isoseq_kallisto_isoform, use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "TPM correlation for transcript level (with novel, prefilter)")
+```
+
+#### afterfilter
+
+```{r}
+kallisto_transcript_TPM %<>% column_to_rownames("ID")
+
+# filter the TPM
+kallisto_transcript_TPM <- kallisto_transcript_TPM[TPM.filter(kallisto_transcript_TPM,sample.n = 3, tpm.cut = 1),]
+
+kallisto_transcript_TPM %<>% rownames_to_column("ID")
+```
+
+```{r}
+associated_isoform_TPM_with_novel_afterfilter <- associated_isoform_TPM_with_novel_prefilter %>% column_to_rownames("ID")
+
+# filter the TPM
+associated_isoform_TPM_with_novel_afterfilter <- associated_isoform_TPM_with_novel_afterfilter[TPM.filter(associated_isoform_TPM_with_novel_afterfilter,sample.n = 3, tpm.cut = 1),]
+
+associated_isoform_TPM_with_novel_afterfilter %<>% rownames_to_column("ID")
+```
+
+```{r}
+isoseq_kallisto_isoform <- left_join(associated_isoform_TPM_with_novel_afterfilter, kallisto_transcript_TPM, by = "ID")
+isoseq_kallisto_isoform %<>% column_to_rownames("ID")
+
+LEVEL <- c("FL22_TPM","FL99_TPM","FL65_TPM","FL53_TPM","FL60_TPM","FL7_TPM","SR22","SR99","SR65","SR53","SR60","SR7")
+
+#p.mat <- cor_pmat(new_counts_TPM)
+corr <- cor(isoseq_kallisto_isoform, use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+rownames(corr) <- rownames(corr) %>% 
+    gsub("_TPM","",.) %>% 
+  gsub("FL","isoseq_TPM_",.) %>% 
+  gsub("SR","illumina_TPM_",.)
+
+colnames(corr) <- colnames(corr) %>% 
+    gsub("_TPM","",.) %>% 
+  gsub("FL","isoseq_TPM_",.) %>% 
+  gsub("SR","illumina_TPM_",.)
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_gray,
+   colors = c("red", "white", "blue"), lab = TRUE, title = "TPM correlation for transcript level (with novel, afterfilter)")
+```
+
+### isoseq_vs_RfeatureCounts
+#### prefilter
+```{r}
+RfeatureCounts_transcript_results_prefilter <- readRDS("RfeatureCounts_transcript_results_prefilter.rds") %>%
+  as.data.frame() %>%
+  rownames_to_column("isoform")
+```
+
+```{r}
+associated_isoform_counts_with_novel_prefilter <- readRDS("associated_isoform_counts_with_novel_prefilter.rds") %>%
+  as.data.frame() %>%
+  rownames_to_column("isoform")
+```
+
+```{r}
+isoseq_RfeatureCounts_isoform <- associated_isoform_counts_with_novel_prefilter %>%
+  left_join(RfeatureCounts_transcript_results_prefilter, by = "isoform") %>%
+  tidyr::drop_na()
+
+isoseq_RfeatureCounts_isoform %<>% column_to_rownames("isoform")
+colnames(isoseq_RfeatureCounts_isoform) <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR53","SR60","SR65","SR7","SR99")
+
+LEVEL <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR99","SR65","SR53","SR60","SR7")
+corr <- cor(isoseq_RfeatureCounts_isoform,use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_grey(),
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for transcript level (with novel, prefilter)") 
+```
+#### afterfilter
+```{r}
+RfeatureCounts_transcript_results_afterfilter <- readRDS("RfeatureCounts_transcript_results_afterfilter.rds") %>%
+  as.data.frame() %>%
+  rownames_to_column("isoform")
+```
+
+```{r}
+associated_isoform_counts_with_novel_afterfilter <- readRDS("associated_isoform_counts_with_novel_afterfilter.rds") %>%
+  as.data.frame() %>%
+  rownames_to_column("isoform")
+```
+
+```{r}
+isoseq_RfeatureCounts_isoform <- RfeatureCounts_transcript_results_afterfilter %>%
+  left_join(associated_isoform_counts_with_novel_afterfilter, by = "isoform")
+
+isoseq_RfeatureCounts_isoform %<>% column_to_rownames("isoform")
+colnames(isoseq_RfeatureCounts_isoform) <- c("SR22","SR53","SR60","SR65","SR7","SR99","FL22","FL99","FL65","FL53","FL60","FL7")
+
+LEVEL <- c("FL22","FL99","FL65","FL53","FL60","FL7","SR22","SR99","SR65","SR53","SR60","SR7")
+corr <- cor(isoseq_RfeatureCounts_isoform,use = "pairwise.complete.obs")
+corr <- corr[LEVEL,LEVEL]
+
+rownames(corr) <- rownames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+colnames(corr) <- colnames(corr) %>% 
+  gsub("FL","isoseq_",.) %>% 
+  gsub("SR","illumina_",.) 
+
+ggcorrplot(corr, outline.col = "white", ggtheme = ggplot2::theme_grey(),
+   colors = c("red", "white", "blue"), lab = TRUE, title = "correlation for transcript level (with novel, afterfilter)") 
+```

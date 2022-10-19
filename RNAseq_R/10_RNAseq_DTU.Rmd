@@ -1,0 +1,249 @@
+---
+title: "differential transcript usage"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(readr)
+library(tibble)
+library(DRIMSeq)
+library(tidyr)
+library(ggplot2)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+# read the count data
+
+```{r}
+kallisto_transcript_TPM <-  readRDS("kallisto_transcript_TPM.rds") %>% 
+  as.data.frame() 
+
+colnames(kallisto_transcript_TPM) %<>% gsub("SR","",.)
+
+# filter the TPM
+kallisto_transcript_TPM <- kallisto_transcript_TPM[TPM.filter(kallisto_transcript_TPM,sample.n = 3, tpm.cut = 1),]
+
+RfeatureCounts_transcript_results_afterfilter <- kallisto_transcript_TPM
+colnames(RfeatureCounts_transcript_results_afterfilter) %<>% gsub("ID","isoform",.)
+
+```
+
+```{r}
+# RfeatureCounts_transcript_results_afterfilter <- readRDS("RfeatureCounts_transcript_results_afterfilter.rds") %>%
+#   as.data.frame() %>%
+#   rownames_to_column("isoform")
+
+colnames(RfeatureCounts_transcript_results_afterfilter) %<>% gsub("\\_.*$","",.)
+```
+
+
+```{r}
+# Pacbio
+PB_RfeatureCounts_transcript_results_afterfilter <- RfeatureCounts_transcript_results_afterfilter[RfeatureCounts_transcript_results_afterfilter$isoform %>% grep("PB",.),]
+
+PB_RfeatureCounts_transcript_results_afterfilter$gene_id <- PB_RfeatureCounts_transcript_results_afterfilter$isoform %>% gsub("\\.[^\\.]+$","",.)
+PB_RfeatureCounts_transcript_results_afterfilter$gene_id
+
+# ENSBIXT
+ENSBIXT_RfeatureCounts_transcript_results_afterfilter <- RfeatureCounts_transcript_results_afterfilter[RfeatureCounts_transcript_results_afterfilter$isoform %>% grep("ENSBIXT",.),]
+
+# inport GTF to match gene_id
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- rtracklayer::import('Bos_indicus_hybrid.UOA_Brahman_1.104.gtf') %>%
+  as.data.frame()
+
+gene_id_transcript_id <- Bos_indicus_hybrid.UOA_Brahman_1.104 %>% 
+  dplyr::select(gene_id,transcript_id) %>%
+  drop_na() %>%
+  unique()
+
+ENSBIXT_RfeatureCounts_transcript_results_afterfilter %<>% 
+  left_join(gene_id_transcript_id, by = c("isoform" = "transcript_id"))
+
+RfeatureCounts_transcript_results_afterfilter <- ENSBIXT_RfeatureCounts_transcript_results_afterfilter[,c("isoform","gene_id", "22", "99","65","7","60","53")] %>% rbind(  PB_RfeatureCounts_transcript_results_afterfilter[,c("isoform","gene_id", "22", "99","65","7","60","53")])
+
+RfeatureCounts_transcript_results_afterfilter <- RfeatureCounts_transcript_results_afterfilter %>% set_colnames(c("feature_id","gene_id", "22", "99","65","7","60","53")) %>%
+  as.data.frame()
+```
+
+
+# read the meta data
+```{r}
+sampleinfo<- read.csv("sampleinfo.csv")
+#sampleinfo$Fetus_ID <- paste0("SR","",sampleinfo$Fetus_ID)
+sampleinfo$Fetus_ID <- gsub("77","7", sampleinfo$Fetus_ID)
+
+sampleinfo$phenotype <- gsub("Bi","Brahman",sampleinfo$Cross)
+sampleinfo$phenotype <- gsub("Bt","Angus",sampleinfo$phenotype)
+```
+
+# differential transcript usage
+## create DSdmDSdata
+```{r}
+sampleinfo <- data.frame(sample_id = sampleinfo$Fetus_ID, 
+  group = sampleinfo$phenotype)
+
+sampleinfo$group <- as.factor(sampleinfo$group)
+sampleinfo$sample_id <- as.factor(sampleinfo$sample_id)
+
+levels(sampleinfo$group)
+
+d <- dmDSdata(counts = RfeatureCounts_transcript_results_afterfilter, samples = sampleinfo)
+d
+head(counts(d))
+head(DRIMSeq::samples(d))
+```
+
+```{r}
+plotData(d)
+```
+# DSdmFilter
+```{r}
+# check the group
+table(DRIMSeq::samples(d)$group)
+
+d <- dmFilter(d, min_samps_feature_expr = 3, min_feature_expr = 0)
+```
+
+```{r}
+## Create the design matrix
+design_full <- model.matrix(~ group, data = DRIMSeq::samples(d))
+design_full
+```
+
+```{r}
+## To make the analysis reproducible
+set.seed(32)
+## Calculate precision
+d <- dmPrecision(d, design = design_full)
+d
+head(mean_expression(d), 3)
+common_precision(d)
+head(genewise_precision(d))
+```
+
+```{r}
+## DSdmPrecision_plot2
+ggp <- plotPrecision(d)
+ggp + geom_point(size = 4)
+```
+
+```{r}
+## DSdmFit
+d <- dmFit(d, design = design_full, verbose = 1)
+d
+
+## Get fitted proportions
+head(proportions(d))
+## Get the DM regression coefficients (gene-level) 
+head(coefficients(d))
+## Get the BB regression coefficients (feature-level) 
+head(coefficients(d), level = "feature")
+
+```
+
+```{r}
+## DSdmTest1 null module
+d <- dmTest(d, coef = "groupBrahman", verbose = 1)
+design(d)
+
+results(d) %>%
+  arrange(adj_pvalue) %>%
+    dplyr::filter(adj_pvalue < 0.05)
+```
+
+```{r}
+# design_null <- model.matrix(~ 1, data = DRIMSeq::samples(d))
+# design_null
+# d <- dmTest(d, design = design_null)
+# 
+# results(d) %>%
+#   dplyr::filter(adj_pvalue < 0.05) %>%
+#   arrange(adj_pvalue)
+```
+
+```{r}
+plotPValues(d)
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[1]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+
+#isoform FL.F22 FL.F53 FL.F60 FL.F65 FL.F77 FL.F99
+#PB.35887.71 14897    244     49  24062     89   9404
+#PB.35887.74 281   1730    713    328   1179    466
+#PB.35887.169 10     49     41      4     44     14
+```
+
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[2]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[3]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[4]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[5]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+# check PB.11287
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[41]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+# check PB.2635
+
+```{r}
+## Plot the top significant gene
+res2 <- results(d)
+res2 <- res2[order(res2$pvalue, decreasing = FALSE), ]
+top_gene_id2 <- res2$gene_id[151]
+plotProportions(d, gene_id = top_gene_id2, group_variable = "group")
+```
+
+# sessionInfo
+```{r}
+sessionInfo()
+```
+

@@ -1,0 +1,168 @@
+---
+title: "DEG RNAseq HTSEQ"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(limma)
+library(edgeR)
+library(ape)
+library(readr)
+library(tibble)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+# R featureCounts
+
+```{r}
+Dirbase <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification"
+HTSEQ_files <- list.files(file.path(Dirbase,"Lloyd_RNAseq_cattle_R/HTSEQ_results"), full.names = TRUE)
+  
+HTSEQ_results <- lapply(HTSEQ_files,FUN = function(x)(read_tsv(x, col_names = FALSE)))
+
+for (x in c(1:6)){
+  if (x == 1){
+    HTSEQ_out <- data.frame()
+    HTSEQ_out <- HTSEQ_results[[1]]
+  }
+  if (x > 1){
+    HTSEQ_out <- left_join(HTSEQ_out,HTSEQ_results[[x]], by = "X1")
+  }
+} 
+
+gene_counts <- HTSEQ_out %>%
+  column_to_rownames("X1") %>%
+  set_colnames(HTSEQ_files %>% gsub(".*results/","",.) %>% gsub("_.*","",.))
+```
+
+
+```{r}
+Brahman_gtf <- rtracklayer::import(file.path(Dirbase,"Results/RNAseq/BrahmangenomewithY.gtf"))
+Brahman_gtf <- as.data.frame(Brahman_gtf)
+```
+
+## Make master DGEList 
+
+```{r}
+x <- list()
+
+# Set the count
+x$counts <- gene_counts %>% 
+  apply(.,MARGIN = 2,FUN = as.numeric) %>%
+  set_rownames(rownames(gene_counts))
+
+colnames(x$counts) <-  gsub("\\./BrahmangenomewithY/", "", colnames(x$counts))
+colnames(x$counts) <-  paste0("F", "", colnames(x$counts))
+
+
+x$anno <- subset(Brahman_gtf, gene_id %in% rownames(x$counts))%>%
+  subset(type %in% "gene")
+
+
+x$genes <- data.frame(gene_id = x$anno$gene_id,
+                      chr = x$anno$seqnames,
+                      gene_name = x$anno$gene_name,
+                      gene_biotype = x$anno$gene_biotype)
+```
+
+
+```{r}
+#set expression level cutoff, can change from 0.5 to 1. 
+sel <- rowSums(cpm(x$counts) > 0.5) >= 3
+x$counts <- x$counts[sel,]
+x$genes <- column_to_rownames(x$genes,"gene_id")[rownames(x$counts),] %>%
+  tibble::rownames_to_column("gene_id")
+x$anno <- column_to_rownames(x$anno,"gene_id")[rownames(x$counts),] %>%
+  tibble::rownames_to_column("gene_id")
+
+```
+
+```{r}
+sampleinfo<- read.csv("sampleinfo.csv")
+sampleinfo$Animal_ID <- paste0("F",gsub("_.*","",sampleinfo$Animal_ID))
+```
+
+```{r}
+x$counts <- x$counts[,match(sampleinfo[,1],colnames(x$counts))]
+colnames(x$counts)
+
+Subject <- as.factor(sampleinfo[,2])
+Tissues <- as.factor(sampleinfo[,3])
+Cross <- as.factor(sampleinfo[,4])
+sampleinfo$phenotype <- gsub("Bi","Brahman",Cross)
+sampleinfo$phenotype <- gsub("Bt","Angus",sampleinfo$phenotype)
+
+Phenotype <- as.factor(sampleinfo[,5])
+
+levels(Cross) <- c("Bt", "Bi")
+levels(Phenotype) <- c("Angus", "Brahman")
+
+x <- new("DGEList", x)
+dim(x)
+```
+
+### Normalization 
+
+```{r}
+x <- calcNormFactors(x, method="TMM")
+```
+
+### Bi vs Bt
+```{r}
+#set design matrix
+desCross<- model.matrix(~0+Phenotype)
+xCross <- estimateDisp(x,desCross)
+
+#plot biological coefficient variation
+plotBCV(xCross)
+
+sqrt(xCross$common.dispersion)
+
+vCross <- voomWithQualityWeights(xCross,design=desCross,normalize.method = "none",
+                            plot=T,col=as.numeric(Subject))
+
+#give the control and treatment colour label
+cols <- rep("red",6)
+cols[Phenotype=="Angus"] <- "black"
+
+#mds plot with batch included
+plotMDS(vCross,label=Phenotype,col=cols,dim.plot=c(1,2),main="RNA-seq MDSplot")
+
+colnames(desCross)=c("Brahman", "Angus")
+
+contrCross <- makeContrasts("Brahman-Angus"= Brahman-Angus,levels=desCross)
+
+vfitCross <- lmFit(vCross)
+
+colnames(vfitCross$coefficients) <- rownames(contrCross)
+
+vfitCross <- contrasts.fit(vfitCross,contrCross)
+vfitCross <- eBayes(vfitCross)
+
+resultsCross <- decideTests(vfitCross,p.value=0.05)
+
+summary(decideTests(vfitCross,p.value=0.05, lfc = 1))
+
+DEG_Brahman_Angus <- topTable(vfitCross,n=Inf,coef=1,p.value=0.05,lfc = 1,adjust.method="fdr")
+DEG_Brahman_Angus$regulation <- "up"
+DEG_Brahman_Angus$regulation[DEG_Brahman_Angus$logFC < 0] <- "down"
+```
+
+```{r}
+write_tsv(DEG_Brahman_Angus,"HTSEQ_significant_DEG_0.05.tsv")
+```
+

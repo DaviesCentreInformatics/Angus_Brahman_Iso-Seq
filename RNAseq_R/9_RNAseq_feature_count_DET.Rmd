@@ -1,0 +1,281 @@
+---
+title: "featurecount DET"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(data.table)
+library(textshape)
+library(biomaRt)
+library(limma)
+library(edgeR)
+library(ape)
+library(readr)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+# with the novel
+
+```{r}
+RfeatureCounts_transcript_results_afterfilter <- readRDS("RfeatureCounts_transcript_results_afterfilter.rds")
+#RfeatureCounts_transcript_results_afterfilter <- RfeatureCounts_transcript_results_afterfilter[rownames(RfeatureCounts_transcript_results_afterfilter)%>% grep("ENSBIXT",.),]
+```
+# read annotation gtf
+```{r}
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/"
+hq.5merge.collapsed_classification.filtered_lite <- rtracklayer::import(file.path(Dir,"hq.5merge.collapsed_classification.filtered_lite.gtf")) %>% 
+  as.data.frame() %>% 
+  subset(type %in% "transcript")
+
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- rtracklayer::import('Bos_indicus_hybrid.UOA_Brahman_1.104.gtf') %>% 
+  as.data.frame() %>% 
+  subset(type %in% "transcript")
+
+
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- Bos_indicus_hybrid.UOA_Brahman_1.104[,colnames(hq.5merge.collapsed_classification.filtered_lite)]
+Pacbio_Brahman_isoform_annotation <- rbind(Bos_indicus_hybrid.UOA_Brahman_1.104,hq.5merge.collapsed_classification.filtered_lite)
+
+```
+
+## Make master DGEList 
+
+```{r}
+x <- list()
+
+# Set the count
+x$counts <- RfeatureCounts_transcript_results_afterfilter %>% 
+  apply(.,MARGIN = 2,FUN = as.numeric) %>%
+  set_rownames(rownames(RfeatureCounts_transcript_results_afterfilter))
+
+# correct the sample names
+colnames(x$counts) %<>% gsub("_.*","",.)
+
+x$anno <- subset(Pacbio_Brahman_isoform_annotation, transcript_id %in% rownames(x$counts))
+
+x$genes <- data.frame(transcript_id = x$anno$transcript_id,
+                      chr = x$anno$seqnames,
+                      start = x$anno$start,
+                      end = x$anno$end,
+                      strand = x$anno$strand,
+                      width = x$anno$width)
+
+x$counts <- x$counts[x$anno$transcript_id,]
+```
+
+```{r}
+sampleinfo <- read.csv("sampleinfo.csv")
+```
+
+```{r}
+x$counts <- x$counts[,match(sampleinfo[,2],colnames(x$counts))]
+colnames(x$counts)
+
+Subject <- as.factor(sampleinfo[,2])
+Cross <- as.factor(sampleinfo[,4])
+sampleinfo$phenotype <- gsub("Bi","Brahman",Cross)
+sampleinfo$phenotype <- gsub("Bt","Angus",sampleinfo$phenotype)
+
+Phenotype <- as.factor(sampleinfo[,5])
+
+levels(Phenotype) <- c("Angus", "Brahman")
+
+x <- new("DGEList", x)
+dim(x)
+```
+
+### Normalization 
+
+```{r}
+x <- calcNormFactors(x, method="TMM")
+```
+
+### Brahman vs Angus
+```{r}
+#set design matrix
+desCross<- model.matrix(~0+Phenotype)
+xCross <- estimateDisp(x,desCross)
+
+#plot biological coefficient variation
+plotBCV(xCross)
+
+sqrt(xCross$common.dispersion)
+
+vCross <- voomWithQualityWeights(xCross,design=desCross,normalize.method = "none",
+                            plot=T,col=as.numeric(Subject))
+
+#give the control and treatment colour label
+cols <- rep("red",6)
+cols[Phenotype=="Angus"] <- "black"
+
+#mds plot with batch included
+plotMDS(vCross,label=Phenotype,col=cols,dim.plot=c(1,2),main="RNA-seq MDSplot")
+
+colnames(desCross)=c("Brahman", "Angus")
+
+contrCross <- makeContrasts("Brahman-Angus"= Brahman-Angus,levels=desCross)
+
+vfitCross <- lmFit(vCross)
+
+colnames(vfitCross$coefficients) <- rownames(contrCross)
+
+vfitCross <- contrasts.fit(vfitCross,contrCross)
+vfitCross <- eBayes(vfitCross)
+
+resultsCross <- decideTests(vfitCross,p.value=0.05)
+
+summary(decideTests(vfitCross,p.value=0.05, lfc = 1))
+
+DEG_Brahman_Angus <- topTable(vfitCross,n=Inf,p.value=0.05,lfc = 1,adjust.method="fdr")
+
+DEG_Brahman_Angus$regulation <- "up"
+DEG_Brahman_Angus$regulation[DEG_Brahman_Angus$logFC < 0] <- "down"
+```
+
+```{r}
+write_tsv(DEG_Brahman_Angus,"RfeatureCounts_significant_with_novel_DET_0.05.tsv")
+#write_tsv(DEG_Brahman_Angus,"RfeatureCounts_significant_without_novel_DET_0.05.tsv")
+```
+
+
+# Terminal featureCounts
+
+```{r}
+#Brahman pre-SQANTI 
+Dirbase <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/"
+gene_counts <- read_tsv(file.path(Dirbase,"Results/RNAseq/genes.out")) %>%
+  column_to_rownames("Geneid")
+```
+
+```{r}
+Brahman_gtf <- rtracklayer::import(file.path(Dirbase,"Results/RNAseq/BrahmangenomewithY.gtf"))
+Brahman_gtf <- as.data.frame(Brahman_gtf)
+#Brahman_gtf <- Brahman_gtf[Brahman_gtf$seqnames %in% "29",]
+#gene_counts <- gene_counts[unique(Brahman_gtf$gene_id),]
+```
+
+## Make master DGEList 
+
+```{r}
+x <- list()
+
+# Set the count
+x$counts <- gene_counts %>% 
+  apply(.,MARGIN = 2,FUN = as.numeric) %>%
+  set_rownames(rownames(gene_counts))
+
+colnames(x$counts) <-  gsub("\\./BrahmangenomewithY/", "", colnames(x$counts))
+colnames(x$counts) <-  gsub(".sorted.bam", "", colnames(x$counts))
+colnames(x$counts) <-  gsub("_.*", "", colnames(x$counts))
+colnames(x$counts) <-  paste0("F", "", colnames(x$counts))
+
+
+x$anno <- subset(Brahman_gtf, gene_id %in% rownames(x$counts))%>%
+  subset(type %in% "gene")
+
+
+x$genes <- data.frame(gene_id = x$anno$gene_id,
+                      chr = x$anno$seqnames,
+                      gene_name = x$anno$gene_name,
+                      gene_biotype = x$anno$gene_biotype)
+```
+
+
+```{r}
+#set expression level cutoff, can change from 0.5 to 1. 
+sel <- rowSums(cpm(x$counts) > 0.1) >= 3
+x$counts <- x$counts[sel,]
+x$genes <- x$genes[sel,]
+x$anno <- x$anno[sel,]
+```
+
+```{r}
+sampleinfo<- read.csv("sampleinfo.csv")
+sampleinfo$Animal_ID <- paste0("F",gsub("_.*","",sampleinfo$Animal_ID))
+```
+
+```{r}
+x$counts <- x$counts[,match(sampleinfo[,1],colnames(x$counts))]
+colnames(x$counts)
+
+Subject <- as.factor(sampleinfo[,2])
+Tissues <- as.factor(sampleinfo[,3])
+Cross <- as.factor(sampleinfo[,4])
+sampleinfo$phenotype <- gsub("Bi","Brahman",Cross)
+sampleinfo$phenotype <- gsub("Bt","Angus",sampleinfo$phenotype)
+
+Phenotype <- as.factor(sampleinfo[,5])
+
+levels(Cross) <- c("Bt", "Bi")
+
+x <- new("DGEList", x)
+dim(x)
+```
+
+### Normalization 
+
+```{r}
+x <- calcNormFactors(x, method="TMM")
+```
+
+### Bi vs Bt
+```{r}
+#set design matrix
+desCross<- model.matrix(~0+Phenotype)
+xCross <- estimateDisp(x,desCross)
+
+#plot biological coefficient variation
+plotBCV(xCross)
+
+sqrt(xCross$common.dispersion)
+
+vCross <- voomWithQualityWeights(xCross,design=desCross,normalize.method = "none",
+                            plot=T,col=as.numeric(Subject))
+
+#give the control and treatment colour label
+cols <- rep("red",6)
+cols[Phenotype=="Angus"] <- "black"
+
+#mds plot with batch included
+plotMDS(vCross,label=Phenotype,col=cols,dim.plot=c(1,2),main="RNA-seq MDSplot")
+
+colnames(desCross)=c("Angus", "Brahman")
+
+contrCross <- makeContrasts("Angus-Brahman"= Angus-Brahman,levels=desCross)
+
+vfitCross <- lmFit(vCross)
+
+colnames(vfitCross$coefficients) <- rownames(contrCross)
+
+vfitCross <- contrasts.fit(vfitCross,contrCross)
+vfitCross <- eBayes(vfitCross)
+
+resultsCross <- decideTests(vfitCross,p.value=0.05)
+
+summary(decideTests(vfitCross,p.value=0.05, lfc = 1))
+
+DEG_Angus_Brahmand <- topTable(vfitCross,n=Inf,coef=1,p.value=0.05,lfc = 1,adjust.method="fdr")
+```
+
+```{r}
+liver_brahmanwithY_DE <- read_csv("Cynthia_DEG_R/liver-brahmanwithY-DE-genetics14-0.05.csv")
+sleuth_significant_DEG <- read_tsv("sleuth_significant_DEG_0.05.tsv")
+intersect(DEG_Angus_Brahmand$gene_name,liver_brahmanwithY_DE$Symbol)
+```
+
+
+

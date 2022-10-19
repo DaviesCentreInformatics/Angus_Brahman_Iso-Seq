@@ -1,0 +1,223 @@
+---
+title: "DEG RNAseq kallisto"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(sleuth)
+library(readr)
+library(magrittr)
+library(dplyr)
+
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+```{r}
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/"
+hq.5merge.collapsed_classification.filtered_lite <- rtracklayer::import(file.path(Dir,"hq.5merge.collapsed_classification.filtered_lite.gtf")) %>% 
+  as.data.frame() %>% 
+  subset(type %in% "transcript")
+
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- rtracklayer::import('Bos_indicus_hybrid.UOA_Brahman_1.104.gtf') %>% 
+  as.data.frame() %>% 
+  subset(type %in% "transcript")
+
+
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- Bos_indicus_hybrid.UOA_Brahman_1.104[,colnames(hq.5merge.collapsed_classification.filtered_lite)]
+Pacbio_Brahman_isoform_annotation <- rbind(Bos_indicus_hybrid.UOA_Brahman_1.104,hq.5merge.collapsed_classification.filtered_lite)
+
+Pacbio_Brahman_isoform_annotation$transcript_id[Pacbio_Brahman_isoform_annotation$transcript_id %>% grep("ENSBIXT",.)] <- paste0(Pacbio_Brahman_isoform_annotation$transcript_id[Pacbio_Brahman_isoform_annotation$transcript_id %>% grep("ENSBIXT",.)],".1")
+```
+
+
+```{r}
+Pacbio_Brahman_isoform_annotation %<>% dplyr::rename(target_id = transcript_id,
+  ens_gene = gene_id, ext_gene = seqnames)
+
+Pacbio_Brahman_isoform_annotation <- Pacbio_Brahman_isoform_annotation[,c("target_id","ens_gene","type","ext_gene")]
+```
+
+
+```{r}
+base_dir <- "~/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Lloyd_RNAseq_cattle_R/kallisto_results"
+
+
+sampleinfo <- read.csv("sampleinfo.csv")
+sampleinfo <- dplyr::select(sampleinfo, sample = Animal_ID,Tissue, Cross)
+
+kal_dirs <- sapply(sampleinfo$sample, function(id) file.path(base_dir, id, "abundance.h5"))
+sampleinfo <- dplyr::mutate(sampleinfo, path = kal_dirs)
+
+# To test for transcripts that are differential expressed between the conditions, sleuth performs a second fit to a “reduced” model that presumes abundances are equal in the *two conditions*. To identify differential expressed transcripts sleuth will then identify transcripts with a significantly better fit with the “full” model.
+
+so <- sleuth_prep(sampleinfo,target_mapping = Pacbio_Brahman_isoform_annotation, aggregation_column = 'ens_gene', extra_bootstrap_summary = TRUE, ~Cross)
+
+new_position_theme <- theme(legend.position = c(0.80, 0.90))
+plot_pca(so,  color_by = 'Cross', text_labels = TRUE) +
+  new_position_theme
+
+plot_loadings(so, pc_input = 1)
+```
+
+```{r}
+plot_bootstrap(so, 'PB.35887.71', color_by = 'Cross') +
+  new_position_theme
+```
+```{r}
+plot_bootstrap(so, 'PB.35887.157', color_by = 'Cross') +
+  new_position_theme
+```
+```{r}
+plot_bootstrap(so, 'PB.35887.148', color_by = 'Cross') +
+  new_position_theme
+```
+```{r}
+plot_bootstrap(so, 'PB.35887.58', color_by = 'Cross') +
+  new_position_theme
+```
+
+```{r}
+plot_bootstrap(so, 'PB.35887.137', color_by = 'Cross') +
+  new_position_theme
+```
+
+
+```{r}
+so <- sleuth_fit(so, ~Cross, 'full')
+so <- sleuth_fit(so, ~1, 'reduced')
+# fit the full model
+so <- sleuth_lrt(so, 'reduced', 'full')
+
+models(so)
+```
+
+```{r}
+# Wald Test (WT) 
+so <- sleuth_wt(so,paste0('CrossBt'))
+res_wt <- sleuth_results(so, 'CrossBt') %>% dplyr::filter( qval < 0.05)
+```
+
+```{r}
+sleuth_table <- sleuth_results(so, 'reduced:full', 'lrt', show_all = FALSE)
+sleuth_significant <- dplyr::filter(sleuth_table, qval < 0.05)
+```
+
+
+```{r}
+### transfer pacbio ID to ensb
+Pacbio_ENSB_matching <- readRDS("Pacbio_ENSB_matching.rds") 
+Pacbio_ENSB_matching <- subset(Pacbio_ENSB_matching, Pacbio_geneID %!in% Pacbio_ENSB_matching$Pacbio_geneID[duplicated(Pacbio_ENSB_matching$Pacbio_geneID)]) %>% arrange(Pacbio_geneID)
+
+rownames(Pacbio_ENSB_matching) <- Pacbio_ENSB_matching$Pacbio_geneID
+
+sleuth_significant$target_id <- Pacbio_ENSB_matching[sleuth_significant$target_id,]$associated_gene
+
+#write_tsv(sleuth_significant,"sleuth_significant_DEG_0.05.tsv")
+# The top 20 significant genes with a (Benjamini-Hochberg multiple testing corrected) q-value <= 0.05.
+head(sleuth_significant, 20)
+```
+```{r}
+plot_transcript_heatmap(so, transcripts = sig_transcripts$target_id[1:20])
+```
+
+```{r}
+plot_bootstrap(so, "PB.35887.71", units = "est_counts", color_by = "condition")
+```
+
+
+```{r}
+F22_abundance <- read_tsv("kallisto_results/22_S28/abundance.tsv")
+F53_abundance <- read_tsv("kallisto_results/53_S31/abundance.tsv")
+F60_abundance <- read_tsv("kallisto_results/60_S33/abundance.tsv")
+F65_abundance <- read_tsv("kallisto_results/65_S36/abundance.tsv")
+F7_abundance <- read_tsv("kallisto_results/7_S25/abundance.tsv")
+F99_abundance <- read_tsv("kallisto_results/99_S43/abundance.tsv")
+```
+
+```{r}
+# F22_abundance$target_id[F22_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# F53_abundance$target_id[F53_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# F60_abundance$target_id[F60_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# F65_abundance$target_id[F65_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# F7_abundance$target_id[F7_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# F99_abundance$target_id[F99_abundance$target_id %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+# 
+# 
+# F22_abundance %>% write_tsv("kallisto_results/22_S28/abundance.tsv")
+# F53_abundance %>% write_tsv("kallisto_results/53_S31/abundance.tsv")
+# F60_abundance %>% write_tsv("kallisto_results/60_S33/abundance.tsv")
+# F65_abundance %>% write_tsv("kallisto_results/65_S36/abundance.tsv")
+# F7_abundance %>% write_tsv("kallisto_results/7_S25/abundance.tsv")
+# F99_abundance %>% write_tsv("kallisto_results/99_S43/abundance.tsv")
+```
+
+
+```{r}
+kallisto_results <- data.frame(ID =  F22_abundance$target_id,
+                               SR22 = F22_abundance$tpm,
+                               SR53 = F53_abundance$tpm,
+                               SR60 = F60_abundance$tpm,
+                               SR65 = F65_abundance$tpm,
+                               SR7 = F7_abundance$tpm,
+                               SR99 = F99_abundance$tpm) %>%
+  as.data.frame()
+
+kallisto_results$ID[kallisto_results$ID %>% grep("ENSBIXT",.)] %<>% gsub("\\..*","",.)
+#kallisto_results %<>% column_to_rownames("ID")
+
+saveRDS(kallisto_results,"kallisto_transcript_TPM.rds")
+```
+
+```{r}
+sleuth_significant_ENSBIXT <- Bos_indicus_hybrid.UOA_Brahman_1.104 %>% subset(gene_id %in% sleuth_significant$target_id[!sleuth_significant$target_id %in% kallisto_results$ID])
+```
+
+```{r}
+kallisto_results$ID %<>% sub("\\.[^\\.]+$", "", .)
+kallisto_results_sleuth_significant_1 <- subset(kallisto_results,  ID %in% sleuth_significant$target_id)
+```
+
+
+```{r}
+kallisto_results_sleuth_significant_2 <- subset(kallisto_results,  ID %in% sleuth_significant_ENSBIXT$transcript_id) 
+sleuth_significant_ENSBIXT$transcript_id <- factor(sleuth_significant_ENSBIXT$transcript_id, levels = kallisto_results_sleuth_significant_2$ID)
+
+sleuth_significant_ENSBIXT %<>% arrange(transcript_id)
+kallisto_results_sleuth_significant_2$ID <- sleuth_significant_ENSBIXT$gene_id
+```
+```{r}
+kallisto_results_sleuth_significant <- rbind(kallisto_results_sleuth_significant_1, kallisto_results_sleuth_significant_2)
+```
+
+```{r}
+kallisto_results_sleuth_significant$ID <- factor(kallisto_results_sleuth_significant$ID,levels = sleuth_significant$target_id)
+
+kallisto_results_sleuth_significant %<>% arrange(ID)
+
+kallisto_results_sleuth_significant <- aggregate(kallisto_results_sleuth_significant$SR22, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum) %>%
+  left_join(aggregate(kallisto_results_sleuth_significant$SR53, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum), by = "Category")%>%
+  left_join(aggregate(kallisto_results_sleuth_significant$SR60, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum), by = "Category")%>%
+  left_join(aggregate(kallisto_results_sleuth_significant$SR65, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum), by = "Category")%>%  
+  left_join(aggregate(kallisto_results_sleuth_significant$SR7, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum), by = "Category")%>%
+  left_join(aggregate(kallisto_results_sleuth_significant$SR99, by=list(Category=kallisto_results_sleuth_significant$ID), FUN=sum), by = "Category") %>%
+  set_colnames(colnames(kallisto_results_sleuth_significant))
+
+
+sleuth_significant$regulation <- (rowMeans2(as.matrix(kallisto_results_sleuth_significant[,c(3,4,6)])) - rowMeans2(as.matrix(kallisto_results_sleuth_significant[,c(2,5,7)]))) > 0
+
+write_tsv(sleuth_significant,"sleuth_significant_DEG_0.05.tsv")
+
+```
+
+

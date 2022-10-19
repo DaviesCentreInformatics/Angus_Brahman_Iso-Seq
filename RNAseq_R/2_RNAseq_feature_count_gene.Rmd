@@ -1,0 +1,105 @@
+---
+title: "RNAseq feature count gene"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(data.table)
+library(S4Vectors)
+library(GenomicRanges)
+library(edgeR)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+# extract gene and combine 
+
+```{r}
+Pacbio_novel_genes <- readRDS("Pacbio_novel_genes.rds")
+```
+
+```{r}
+# write the PacBio annotation for gene only 
+hq_5merge.collapsed_corrected <- rtracklayer::import('/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/hq.5merge.collapsed_classification.filtered_lite.gtf')
+
+hq_5merge.collapsed_corrected <- subset(hq_5merge.collapsed_corrected, type %in% "transcript")
+hq_5merge.collapsed_corrected <- subset(hq_5merge.collapsed_corrected, gene_id %in% c(Pacbio_novel_genes$associated_gene)) %>%
+  as.data.frame()
+
+# write the Brahman annotation for gene only 
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- rtracklayer::import('Bos_indicus_hybrid.UOA_Brahman_1.104.gtf')
+# Check gene and transcripts
+# test_ENSBIXG00005005314 <- subset(Bos_indicus_hybrid.UOA_Brahman_1.104, gene_id %in% "ENSBIXG00005005314")
+# test_ENSBIXG00005001486 <- subset(Bos_indicus_hybrid.UOA_Brahman_1.104, gene_id %in% "ENSBIXG00005001486")
+Bos_indicus_hybrid.UOA_Brahman_1.104_gene <- subset(Bos_indicus_hybrid.UOA_Brahman_1.104, type %in% "gene") %>%
+  as.data.frame()
+
+hq_5merge.collapsed_corrected_list <- split(hq_5merge.collapsed_corrected,hq_5merge.collapsed_corrected$gene_id)
+
+hq_5merge.collapsed_corrected_list_gene <- lapply(c(1:length(hq_5merge.collapsed_corrected_list)),FUN = function(x){
+OUTPUT <- hq_5merge.collapsed_corrected_list[[x]][1,]  
+
+OUTPUT$start <- hq_5merge.collapsed_corrected_list[[x]]$start %>% min
+OUTPUT$end <- hq_5merge.collapsed_corrected_list[[x]]$end %>% max
+
+return(OUTPUT)}) %>% do.call("rbind",.)
+
+hq_5merge.collapsed_corrected_list_gene$type <- "gene"
+
+rtracklayer::export(hq_5merge.collapsed_corrected_list_gene, 'hq.5merge.collapsed_classification.filtered_lite_gene.gtf', format = 'gtf')
+rtracklayer::export(Bos_indicus_hybrid.UOA_Brahman_1.104_gene, 'Bos_indicus_hybrid.UOA_Brahman_1.104_gene.gtf', format = 'gtf')
+```
+
+```{r}
+isoseq_transcriptome_Brahman.combined_gene <- rbind(hq_5merge.collapsed_corrected_list_gene,Bos_indicus_hybrid.UOA_Brahman_1.104_gene[,colnames(hq_5merge.collapsed_corrected_list_gene)])
+
+isoseq_transcriptome_Brahman.combined_gene_GRanges <- makeGRangesFromDataFrame(isoseq_transcriptome_Brahman.combined_gene)
+
+mcols(isoseq_transcriptome_Brahman.combined_gene_GRanges) <- isoseq_transcriptome_Brahman.combined_gene[,-c(1:5)]
+
+isoseq_transcriptome_Brahman.combined_gene_GRanges <- sortSeqlevels(isoseq_transcriptome_Brahman.combined_gene_GRanges) %>%
+  sort() %>%
+  unique() %>% 
+  as.data.frame()
+
+rtracklayer::export(isoseq_transcriptome_Brahman.combined_gene_GRanges, 'isoseq_transcriptome_Brahman.combined_gene_GRanges.gtf', format = 'gtf')
+```
+
+# R featureCounts
+## gene
+```{r}
+library(Rsubread)
+
+sortbam <- dir(path = "./feature_count" ,pattern=".sorted.bam", full.names = T)
+#sortbam <- dir(path = "." ,pattern=".sorted.bam", full.names = T)
+
+#Bos_indicus <- rtracklayer::import('isoseq_transcriptome_Brahman.combined_gene_GRanges.gtf')
+
+countsensembl <- featureCounts(sortbam, annot.ext="isoseq_transcriptome_Brahman.combined_gene_GRanges.gtf", isGTFAnnotationFile=TRUE, GTF.featureType="gene", GTF.attrType="gene_id", isPairedEnd=TRUE, reportReads=NULL)
+
+saveRDS(countsensembl,"RfeatureCounts_gene_results_prefilter.rds")
+```
+
+# filter
+```{r}
+#countsensembl <- readRDS("RfeatureCounts_gene_results_prefilter.rds")
+
+sel <- rowSums(cpm(countsensembl$counts) > 0.5) >= 3
+countsensembl$counts <- countsensembl$counts[sel,]
+
+
+saveRDS(countsensembl,"RfeatureCounts_gene_results_afterfilter.rds")
+```
