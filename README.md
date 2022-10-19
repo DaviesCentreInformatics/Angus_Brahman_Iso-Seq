@@ -8,8 +8,8 @@ Here listed the scripts used for paper "Comparison of Isoseq and RNAseq reveals 
 
 ## The scripts to analysis Isoseq data are listed in folder Pacbio_R.
 
-**1_IsoSeq_Gene.Rmd: 
-*Call genes from the Isoseq data and filter for expressed genes.
+* 1_IsoSeq_Gene.Rmd: 
+*Call genes from the Isoseq data and filter for expressed genes.*
 
 * 2_IsoSeq_DEG.Rmd: 
 *Calculate DEGs using Limma linear module.
