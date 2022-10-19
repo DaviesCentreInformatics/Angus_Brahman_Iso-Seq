@@ -2,5 +2,14 @@
 
 Here listed the scripts used for paper "Comparison of Isoseq and RNAseq reveals hidden transcriptional complexity in cattle".
 
-* The analysis structure
+## The analysis structure
 ![Fig_S1 Flowchart](https://user-images.githubusercontent.com/25737808/196599241-727efe93-9409-446d-bfe9-4c96000fc001.png)
+
+## The scripts to analysis Isoseq data are listed in folder Pacbio_R.
+
+## The scripts to analysis RNAseq data are listed in folder RNAseq_R.
+
+
+## The scripts to compare and combine Isoseq and RNAseq data are listed in folder Isose_vs_RNAseq.
+
+
