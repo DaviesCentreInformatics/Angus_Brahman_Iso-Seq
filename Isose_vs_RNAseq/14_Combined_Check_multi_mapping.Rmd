@@ -1,0 +1,741 @@
+---
+title: "Check if the multi-mapping exist in groups of DEGs"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+'%!in%' <- function(x,y)!('%in%'(x,y))
+```
+
+```{r}
+setwd("~/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Lloyd_RNAseq_cattle_R/multi_mapping_check")
+```
+
+# Brahman_65
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/65_S36.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Brahman_65", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Brahman_65", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Brahman_65", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Brahman_65 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Brahman_65$Group <- as.factor(PER_VALUE_to_plot_Brahman_65$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Brahman_65$Sample <- "Brahman_65"
+```
+
+# Brahman_99
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/99_S43.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Brahman_99", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Brahman_99", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Brahman_99", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Brahman_99 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Brahman_99$Group <- as.factor(PER_VALUE_to_plot_Brahman_99$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Brahman_99$Sample <- "Brahman_99"
+```
+
+# Brahman_22
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/22_S28.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Brahman_22", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Brahman_22", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Brahman_22", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Brahman_22 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Brahman_22$Group <- as.factor(PER_VALUE_to_plot_Brahman_22$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Brahman_22$Sample <- "Brahman_22"
+```
+# Angus_7
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/7_S25.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Angus_7", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Angus_7", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Angus_7", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Angus_7 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Angus_7$Group <- as.factor(PER_VALUE_to_plot_Angus_7$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Angus_7$Sample <- "Angus_7"
+```
+
+# Angus_53
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/53_S31.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Angus_53", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Angus_53", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Angus_53", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Angus_53 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Angus_53$Group <- as.factor(PER_VALUE_to_plot_Angus_53$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Angus_53$Sample <- "Angus_53"
+```
+
+
+
+# Angus_60
+```{r}
+# read all read IDs for secondary mapping
+read_IDs_secondary <- read_table("multi_mapping_check/60_S33.sorted_read_IDs_secondary.txt", col_names = FALSE)
+read_IDs_secondary %<>% set_colnames(c("Read_ID","Bam_flag"))
+```
+
+```{r}
+# read read_IDs for DEGs identified in both method 
+DEG_both_RNAseq_Isoseq_coordinates <- list.files("multi_mapping_check/DEG_both_RNAseq_Isoseq_coordinates/Angus_60", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_both_RNAseq_Isoseq_coordinates))){
+  Gene_read_ID <- read.table(DEG_both_RNAseq_Isoseq_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+both_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+both_PER_VALUE$read_ID <- DEG_both_RNAseq_Isoseq_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as both
+both_PER_VALUE$Group <- "both"
+```
+
+```{r}
+# read read_IDs for DEGs identified in Isoseq only
+DEG_Isoseq_only_coordinates <- list.files("multi_mapping_check/DEG_Isoseq_only_coordinates/Angus_60", full.names =  TRUE)
+
+PER_VALUE <- list()
+
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_Isoseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_Isoseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1%in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+Isoseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+Isoseq_PER_VALUE$read_ID <- DEG_Isoseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as Isoseq
+Isoseq_PER_VALUE$Group <- "Isoseq"
+```
+
+```{r}
+# read read_IDs for DEGs identified in RNAseq only
+DEG_RNAseq_only_coordinates <- list.files("multi_mapping_check/DEG_RNAseq_only_coordinates/Angus_60", full.names =  TRUE)
+
+PER_VALUE <- list()
+# loop to read each file for one gene and calculate the per of reads of secondary mapping in this gene
+for (i in c(1:length(DEG_RNAseq_only_coordinates))){
+  Gene_read_ID <- read.table(DEG_RNAseq_only_coordinates[i]) %>%
+    as.data.frame()
+  PER_VALUE[[i]]<- (sum(Gene_read_ID$V1 %in% read_IDs_secondary$Read_ID)/length(Gene_read_ID$V1))* 100
+} 
+
+# tide up the percentage value
+RNAseq_PER_VALUE <- PER_VALUE %>% 
+  unlist() %>% 
+  as.data.frame() %>%
+  set_colnames("multi_per")
+
+# add the gene ID
+RNAseq_PER_VALUE$read_ID <- DEG_RNAseq_only_coordinates %>% gsub(".*\\/","",.) %>% gsub("_IDs.txt","",.)
+# mark group as RNAseq
+RNAseq_PER_VALUE$Group <- "RNAseq"
+```
+
+```{r}
+
+PER_VALUE_to_plot_Angus_60 <- rbind(Isoseq_PER_VALUE,RNAseq_PER_VALUE) %>%
+  rbind(both_PER_VALUE)
+
+PER_VALUE_to_plot_Angus_60$Group <- as.factor(PER_VALUE_to_plot_Angus_60$Group)
+```
+
+```{r}
+PER_VALUE_to_plot_Angus_60$Sample <- "Angus_60"
+```
+
+
+
+
+
+
+
+```{r}
+PER_VALUE_to_plot <- PER_VALUE_to_plot_Angus_53 %>%
+  rbind(PER_VALUE_to_plot_Angus_7) %>%
+  rbind(PER_VALUE_to_plot_Angus_60) %>%
+  rbind(PER_VALUE_to_plot_Brahman_65) %>%
+  rbind(PER_VALUE_to_plot_Brahman_99) %>%
+  rbind(PER_VALUE_to_plot_Brahman_22)
+```
+
+```{r}
+ggplot(PER_VALUE_to_plot, aes(x=Group, y=multi_per, fill = Group)) + 
+  geom_dotplot(binaxis='y', stackdir='center') +
+  xlab("")+
+  ylab("multimapping_per_DEG")+
+  ggtitle("Commom DEG of down regulation", subtitle = waiver()) +
+    scale_fill_manual(values=c("#00c3c6", "#f9b410", "#ff6c67")) +  
+  theme_bw()
+```
+
+```{r}
+ggplot(PER_VALUE_to_plot, aes(x=Group, y=multi_per, fill = Sample)) + 
+  geom_boxplot(binaxis='y', stackdir='center') +
+  xlab("")+
+  ylab("multimapping_per_DEG")+
+  ggtitle("DEG", subtitle = waiver()) +
+   # scale_fill_manual(values=c("#00c3c6", "#f9b410", "#ff6c67")) +  
+  theme_bw()
+```
+
+## Chek the NH
+### both_count
+
+```{r}
+both_reads <- read.table("multi_mapping_check/Count_reads/Angus_7/both_reads.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+both_reads$Angus_53 <- read.table("multi_mapping_check/Count_reads/Angus_53/both_reads.txt")$V1 
+both_reads$Angus_60 <- read.table("multi_mapping_check/Count_reads/Angus_60/both_reads.txt")$V1 
+both_reads$Brahman_22 <- read.table("multi_mapping_check/Count_reads/Brahman_22/both_reads.txt")$V1 
+both_reads$Brahman_65 <- read.table("multi_mapping_check/Count_reads/Brahman_65/both_reads.txt")$V1 
+both_reads$Brahman_99 <- read.table("multi_mapping_check/Count_reads/Brahman_99/both_reads.txt")$V1
+
+```
+
+```{r}
+both_count_multi <- read.table("multi_mapping_check/Count_NH_tag/Angus_7/both_count_multi.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+both_count_multi$Angus_53 <- read.table("multi_mapping_check/Count_NH_tag/Angus_53/both_count_multi.txt")$V1 
+both_count_multi$Angus_60 <- read.table("multi_mapping_check/Count_NH_tag/Angus_60/both_count_multi.txt")$V1 
+both_count_multi$Brahman_22 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_22/both_count_multi.txt")$V1 
+both_count_multi$Brahman_65 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_65/both_count_multi.txt")$V1 
+both_count_multi$Brahman_99 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_99/both_count_multi.txt")$V1
+
+both_count_multi <- (1-(both_count_multi/both_reads))* 100
+both_count_multi_plot <- reshape2::melt(both_count_multi)
+both_count_multi_plot$Group <- "both"
+```
+
+```{r}
+Isoseq_count_reads <- read.table("multi_mapping_check/Count_reads/Angus_7/Isoseq_count_reads.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+Isoseq_count_reads$Angus_53 <- read.table("multi_mapping_check/Count_reads/Angus_53/Isoseq_count_reads.txt")$V1 
+Isoseq_count_reads$Angus_60 <- read.table("multi_mapping_check/Count_reads/Angus_60/Isoseq_count_reads.txt")$V1 
+Isoseq_count_reads$Brahman_22 <- read.table("multi_mapping_check/Count_reads/Brahman_22/Isoseq_count_reads.txt")$V1 
+Isoseq_count_reads$Brahman_65 <- read.table("multi_mapping_check/Count_reads/Brahman_65/Isoseq_count_reads.txt")$V1 
+Isoseq_count_reads$Brahman_99 <- read.table("multi_mapping_check/Count_reads/Brahman_99/Isoseq_count_reads.txt")$V1
+```
+
+
+```{r}
+Isoseq_count_multi <- read.table("multi_mapping_check/Count_NH_tag/Angus_7/Isoseq_count_multi.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+Isoseq_count_multi$Angus_53 <- read.table("multi_mapping_check/Count_NH_tag/Angus_53/Isoseq_count_multi.txt")$V1 
+Isoseq_count_multi$Angus_60 <- read.table("multi_mapping_check/Count_NH_tag/Angus_60/Isoseq_count_multi.txt")$V1 
+Isoseq_count_multi$Brahman_22 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_22/Isoseq_count_multi.txt")$V1 
+Isoseq_count_multi$Brahman_65 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_65/Isoseq_count_multi.txt")$V1 
+Isoseq_count_multi$Brahman_99 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_99/Isoseq_count_multi.txt")$V1
+
+Isoseq_count_multi <- (1-(Isoseq_count_multi/Isoseq_count_reads)) * 100
+Isoseq_count_multi_plot <- reshape2::melt(Isoseq_count_multi)
+Isoseq_count_multi_plot$Group <- "Isoseq"
+
+```
+
+
+```{r}
+RNAseq_count_reads <- read.table("multi_mapping_check/Count_reads/Angus_7/RNAseq_count_reads.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+RNAseq_count_reads$Angus_53 <- read.table("multi_mapping_check/Count_reads/Angus_53/RNAseq_count_reads.txt")$V1 
+RNAseq_count_reads$Angus_60 <- read.table("multi_mapping_check/Count_reads/Angus_60/RNAseq_count_reads.txt")$V1 
+RNAseq_count_reads$Brahman_22 <- read.table("multi_mapping_check/Count_reads/Brahman_22/RNAseq_count_reads.txt")$V1 
+RNAseq_count_reads$Brahman_65 <- read.table("multi_mapping_check/Count_reads/Brahman_65/RNAseq_count_reads.txt")$V1 
+RNAseq_count_reads$Brahman_99 <- read.table("multi_mapping_check/Count_reads/Brahman_99/RNAseq_count_reads.txt")$V1
+```
+
+
+```{r}
+RNAseq_count_multi <- read.table("multi_mapping_check/Count_NH_tag/Angus_7/RNAseq_count_multi.txt")$V1 %>% as.data.frame() %>% set_colnames("Angus_7")
+
+RNAseq_count_multi$Angus_53 <- read.table("multi_mapping_check/Count_NH_tag/Angus_53/RNAseq_count_multi.txt")$V1 
+RNAseq_count_multi$Angus_60 <- read.table("multi_mapping_check/Count_NH_tag/Angus_60/RNAseq_count_multi.txt")$V1 
+RNAseq_count_multi$Brahman_22 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_22/RNAseq_count_multi.txt")$V1 
+RNAseq_count_multi$Brahman_65 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_65/RNAseq_count_multi.txt")$V1 
+RNAseq_count_multi$Brahman_99 <- read.table("multi_mapping_check/Count_NH_tag/Brahman_99/RNAseq_count_multi.txt")$V1
+
+RNAseq_count_multi <- (1-(RNAseq_count_multi/RNAseq_count_reads)) * 100
+RNAseq_count_multi_plot <- reshape2::melt(RNAseq_count_multi)
+RNAseq_count_multi_plot$Group <- "RNAseq"
+
+RNAseq_count_multi$Angus_53[62] <- 0
+```
+
+```{r}
+
+# plot the number of multimapping for each technology. (no devided by reads)
+both_count_multi_plot %>% 
+  rbind(Isoseq_count_multi_plot) %>% 
+  rbind(RNAseq_count_multi_plot)%>%
+  ggplot(aes(x=Group, y=value, fill = variable)) + 
+  geom_boxplot(binaxis='y', stackdir='center') +
+  xlab("")+
+  ylab("multimapping/No. of reads")+
+  ggtitle("DEG", subtitle = waiver()) +
+   # scale_fill_manual(values=c("#00c3c6", "#f9b410", "#ff6c67")) +  
+  theme_bw()
+```
+
+# Significant test
+```{r}
+# all animals
+animals_list <- c("Angus_7","Angus_53","Angus_60","Brahman_22","Brahman_65","Brahman_99")
+
+# list of p-values
+p_value_list <- list()
+
+p_value_list <- lapply(c(1:length(animals_list)), function(x){
+  p_value_list[[x]] <- data_frame(RNAseq_vs_Both = wilcox.test(RNAseq_count_multi[,animals_list[[x]]], both_count_multi[,animals_list[[x]]])$p.value,
+                                Isoseq_vs_Both = wilcox.test(Isoseq_count_multi[,animals_list[[x]]], both_count_multi[,animals_list[[x]]])$p.value,
+                                RNAseq_vs_Isoseq = wilcox.test(RNAseq_count_multi[,animals_list[[x]]], Isoseq_count_multi[,animals_list[[x]]])$p.value)
+}) %>% do.call("rbind",.) %>%
+  as.data.frame() %>%
+  set_rownames(animals_list)
+
+p_value_list
+
+```
+
+# sessionInfo
+```{r}
+sessionInfo()
+```
+
