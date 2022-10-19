@@ -1,0 +1,530 @@
+---
+title: "Transcript structures"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(readr)
+library(tibble)
+library(DRIMSeq)
+library(tidyr)
+library(ggplot2)
+library(ggtranscript)
+
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+```{r}
+#Brahman post-SQANTI 
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/"
+
+# inport GTF to match gene_id
+hq.5merge.collapsed_classification.filtered_lite <- rtracklayer::import(file.path(Dir,'hq.5merge.collapsed_classification.filtered_lite.gtf')) %>%
+  as.data.frame()
+
+associated_isoform_counts_with_novel_afterfilter <- readRDS("associated_isoform_counts_with_novel_afterfilter.rds")
+
+classification %>% subset(associated_gene %in% "ENSBIXG00005000563")
+associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005000563$transcript_id),] %>% drop_na()
+
+```
+
+# PB.11287
+```{r}
+Transcripts_in_ENSBIXG00005020385 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.11287")
+Transcripts_in_ENSBIXG00005020385 <- subset(Transcripts_in_ENSBIXG00005020385, type %in% "exon")
+Transcripts_in_ENSBIXG00005020385 <- subset(Transcripts_in_ENSBIXG00005020385, transcript_id %in% c("PB.11287.301","PB.11287.194","PB.11287.38","PB.11287.108.1","PB.11287.257"))
+
+Transcripts_in_ENSBIXG00005020385 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005020385, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.2635
+```{r}
+Transcripts_in_ENSBIXG00005005332 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.2635")
+Transcripts_in_ENSBIXG00005005332 <- subset(Transcripts_in_ENSBIXG00005005332, type %in% "exon")
+Transcripts_in_ENSBIXG00005005332 <- subset(Transcripts_in_ENSBIXG00005005332, transcript_id %in% c("PB.2635.41","PB.2635.36","PB.2635.11","PB.2635.90"))
+
+Transcripts_in_ENSBIXG00005005332$transcript_id <-  factor(Transcripts_in_ENSBIXG00005005332$transcript_id, levels =  c("PB.2635.90","PB.2635.11","PB.2635.36","PB.2635.41"))
+
+Transcripts_in_ENSBIXG00005005332 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005005332, "transcript_id"),
+        aes(strand = strand)
+    ) + theme_bw()
+```
+
+# PB.27455
+```{r}
+Transcripts_in_ENSBIXG00005015350 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.27455")
+Transcripts_in_ENSBIXG00005015350 <- subset(Transcripts_in_ENSBIXG00005015350, type %in% "exon")
+Transcripts_in_ENSBIXG00005015350 <- subset(Transcripts_in_ENSBIXG00005015350, transcript_id %in% c("PB.27455.1","PB.27455.10"))
+
+Transcripts_in_ENSBIXG00005015350 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005015350, "transcript_id"),
+        aes(strand = strand)
+    ) + theme_bw()
+```
+
+# PB.19319
+```{r}
+Transcripts_in_ENSBIXG00005025666 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.19319")
+Transcripts_in_ENSBIXG00005025666 <- subset(Transcripts_in_ENSBIXG00005025666, type %in% "exon")
+Transcripts_in_ENSBIXG00005025666 <- subset(Transcripts_in_ENSBIXG00005025666, transcript_id %in% c("PB.19319.50","PB.19319.1","PB.19319.15","PB.19319.32"))
+
+Transcripts_in_ENSBIXG00005025666 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005025666, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.14835
+```{r}
+Transcripts_in_ENSBIXG00005026491 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.14835")
+Transcripts_in_ENSBIXG00005026491 <- subset(Transcripts_in_ENSBIXG00005026491, type %in% "exon")
+Transcripts_in_ENSBIXG00005026491 <- subset(Transcripts_in_ENSBIXG00005026491, transcript_id %in% c("PB.14835.25","PB.14835.9","PB.14835.31","PB.14835.22"))
+
+Transcripts_in_ENSBIXG00005026491 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005026491, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.22519
+```{r}
+Transcripts_in_ENSBIXG00005000563 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.22519")
+Transcripts_in_ENSBIXG00005000563 <- subset(Transcripts_in_ENSBIXG00005000563, type %in% "exon")
+Transcripts_in_ENSBIXG00005000563 <- subset(Transcripts_in_ENSBIXG00005000563, transcript_id %in% c("PB.22519.15","PB.22519.8","PB.22519.23","PB.22519.11","PB.22519.17","PB.22519.31","PB.22519.13"))
+
+Transcripts_in_ENSBIXG00005000563 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005000563, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# PB.34736
+```{r}
+Transcripts_in_ENSBIXG00005007485 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.34736")
+Transcripts_in_ENSBIXG00005007485 <- subset(Transcripts_in_ENSBIXG00005007485, type %in% "exon")
+Transcripts_in_ENSBIXG00005007485 <- subset(Transcripts_in_ENSBIXG00005007485, transcript_id %in% c("PB.34736.8","PB.34736.86","PB.34736.14"))
+
+Transcripts_in_ENSBIXG00005007485 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005007485, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# PB.4790
+```{r}
+classification %>% subset(associated_gene %in% "ENSBIXG00005011661")
+associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005011661$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005011661 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.4790")
+Transcripts_in_ENSBIXG00005011661 <- subset(Transcripts_in_ENSBIXG00005011661, type %in% "exon")
+Transcripts_in_ENSBIXG00005011661 <- subset(Transcripts_in_ENSBIXG00005011661, transcript_id %in% c("PB.4790.58","PB.4790.38","PB.4790.126"))
+
+Transcripts_in_ENSBIXG00005011661 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005011661, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.6828
+```{r}
+
+Transcripts_in_ENSBIXG00005022121 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.6828")
+Transcripts_in_ENSBIXG00005022121 <- subset(Transcripts_in_ENSBIXG00005022121, type %in% "exon")
+Transcripts_in_ENSBIXG00005022121 <- subset(Transcripts_in_ENSBIXG00005022121, transcript_id %in% c("PB.6828.14","PB.6828.19","PB.6828.21"))
+
+Transcripts_in_ENSBIXG00005022121 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005022121, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.16479
+```{r}
+Transcripts_in_ENSBIXG00005020694 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.16479")
+Transcripts_in_ENSBIXG00005020694 <- subset(Transcripts_in_ENSBIXG00005020694, type %in% "exon")
+Transcripts_in_ENSBIXG00005020694 <- subset(Transcripts_in_ENSBIXG00005020694, transcript_id %in% c("PB.16479.125"))
+
+Transcripts_in_ENSBIXG00005020694 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005020694, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# PB.36841
+```{r}
+
+Transcripts_in_ENSBIXG00005013320 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.36841")
+Transcripts_in_ENSBIXG00005013320 <- subset(Transcripts_in_ENSBIXG00005013320, type %in% "exon")
+Transcripts_in_ENSBIXG00005013320 <- subset(Transcripts_in_ENSBIXG00005013320, transcript_id %in% c("PB.36841.11","PB.36841.12","PB.36841.3","PB.36841.5"))
+
+Transcripts_in_ENSBIXG00005013320 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005013320, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.29663
+```{r}
+Transcripts_in_ENSBIXG00005012188 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.29663")
+Transcripts_in_ENSBIXG00005012188 <- subset(Transcripts_in_ENSBIXG00005012188, type %in% "exon")
+Transcripts_in_ENSBIXG00005012188 <- subset(Transcripts_in_ENSBIXG00005012188, transcript_id %in% c("PB.29663.116","PB.29663.9"))
+
+Transcripts_in_ENSBIXG00005012188 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005012188, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# PB.32189
+```{r}
+
+Transcripts_in_ENSBIXG00005028664 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.32189")
+Transcripts_in_ENSBIXG00005028664 <- subset(Transcripts_in_ENSBIXG00005028664, type %in% "exon")
+Transcripts_in_ENSBIXG00005028664 <- subset(Transcripts_in_ENSBIXG00005028664, transcript_id %in% c("PB.32189.56","PB.32189.58"))
+
+Transcripts_in_ENSBIXG00005028664 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005028664, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.36348
+```{r}
+Transcripts_in_ENSBIXG00005000323 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.36348")
+Transcripts_in_ENSBIXG00005000323 <- subset(Transcripts_in_ENSBIXG00005000323, type %in% "exon")
+Transcripts_in_ENSBIXG00005000323 <- subset(Transcripts_in_ENSBIXG00005000323, transcript_id %in% c("PB.36348.70","PB.36348.79", "PB.36348.82"))
+
+Transcripts_in_ENSBIXG00005000323 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005000323, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.36345
+```{r}
+Transcripts_in_ENSBIXG00005009015 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.36345")
+Transcripts_in_ENSBIXG00005009015 <- subset(Transcripts_in_ENSBIXG00005009015, type %in% "exon")
+Transcripts_in_ENSBIXG00005009015 <- subset(Transcripts_in_ENSBIXG00005009015, transcript_id %in% c("PB.36345.82","PB.36345.79", "PB.36345.80"))
+
+Transcripts_in_ENSBIXG00005009015 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005009015, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.17180
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005017338")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005017338$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005017338 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.17180")
+Transcripts_in_ENSBIXG00005017338 <- subset(Transcripts_in_ENSBIXG00005017338, type %in% "exon")
+Transcripts_in_ENSBIXG00005017338 <- subset(Transcripts_in_ENSBIXG00005017338, transcript_id %in% c("PB.17180.18","PB.17180.56", "PB.17180.20", "PB.17180.50", "PB.17180.56"))
+
+Transcripts_in_ENSBIXG00005017338 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005017338, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.2060
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005011318")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005011318$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005011318 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.2060")
+Transcripts_in_ENSBIXG00005011318 <- subset(Transcripts_in_ENSBIXG00005011318, type %in% "exon")
+Transcripts_in_ENSBIXG00005011318 <- subset(Transcripts_in_ENSBIXG00005011318, transcript_id %in% c("PB.2060.3","PB.2060.15", "PB.2060.2"))
+
+Transcripts_in_ENSBIXG00005011318 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005011318, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.32124
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005029828")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005029828$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005029828 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.32124")
+Transcripts_in_ENSBIXG00005029828 <- subset(Transcripts_in_ENSBIXG00005029828, type %in% "exon")
+Transcripts_in_ENSBIXG00005029828 <- subset(Transcripts_in_ENSBIXG00005029828, transcript_id %in% c("PB.32124.3","PB.32124.64", "PB.32124.52.1"))
+
+Transcripts_in_ENSBIXG00005029828 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005029828, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# PB.11444
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005006925")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005006925$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005006925 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.11444")
+Transcripts_in_ENSBIXG00005006925 <- subset(Transcripts_in_ENSBIXG00005006925, type %in% "exon")
+Transcripts_in_ENSBIXG00005006925 <- subset(Transcripts_in_ENSBIXG00005006925, transcript_id %in% c("PB.11444.68","PB.11444.5"))
+
+Transcripts_in_ENSBIXG00005006925 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005006925, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+# PB.35887
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005004010")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005004010$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005004010 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.35887")
+Transcripts_in_ENSBIXG00005004010 <- subset(Transcripts_in_ENSBIXG00005004010, type %in% "exon")
+Transcripts_in_ENSBIXG00005004010 <- subset(Transcripts_in_ENSBIXG00005004010, transcript_id %in% c("PB.35887.71","PB.35887.74", "PB.35887.169","PB.35887.157","PB.35887.89", "PB.35887.76","PB.35887.148"))
+
+Transcripts_in_ENSBIXG00005004010 <- subset(Transcripts_in_ENSBIXG00005004010, transcript_id %in% c(rownames(test[Rank$Rank,])))
+Transcripts_in_ENSBIXG00005004010$transcript_id <- factor(Transcripts_in_ENSBIXG00005004010$transcript_id, levels = c(rownames(test[Rank$Rank,])))
+
+
+Transcripts_in_ENSBIXG00005004010$transcript_id <- factor(Transcripts_in_ENSBIXG00005004010$transcript_id, levels = c("PB.35887.71","PB.35887.74", "PB.35887.169","PB.35887.157","PB.35887.89", "PB.35887.76","PB.35887.148"))
+
+Transcripts_in_ENSBIXG00005004010 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005004010, "transcript_id"),
+        aes(strand = strand)
+    ) +
+  theme_bw()
+```
+
+# PB.32341
+```{r}
+# classification %>% subset(associated_gene %in% "ENSBIXG00005003856")
+# associated_isoform_counts_with_novel_afterfilter[unique(Transcripts_in_ENSBIXG00005003856$transcript_id),] %>% drop_na()
+
+Transcripts_in_ENSBIXG00005003856 <- hq.5merge.collapsed_classification.filtered_lite %>% subset(gene_id %in% "PB.32341")
+Transcripts_in_ENSBIXG00005003856 <- subset(Transcripts_in_ENSBIXG00005003856, type %in% "exon")
+Transcripts_in_ENSBIXG00005003856 <- subset(Transcripts_in_ENSBIXG00005003856, transcript_id %in% c("PB.32341.93","PB.32341.93.1", "PB.32341.8","PB.32341.75"))
+
+Transcripts_in_ENSBIXG00005003856 %>%
+    ggplot(aes(
+        xstart = start,
+        xend = end,
+        y = transcript_id
+    )) +
+    geom_range(
+        aes(fill = transcript_id)
+    ) +
+    geom_intron(
+        data = to_intron(Transcripts_in_ENSBIXG00005003856, "transcript_id"),
+        aes(strand = strand)
+    )
+```
+
+
+# sessionInfo
+```{r}
+sessionInfo()
+```
+

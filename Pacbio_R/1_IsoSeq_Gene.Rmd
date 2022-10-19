@@ -1,0 +1,196 @@
+---
+title: "Extract genes from isoseq"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(data.table)
+library(textshape)
+library(biomaRt)
+
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+```{r}
+# Brahman post-SQANTI 
+# The transcripts has been mapped to Brahman genome and filtered by SQANTI
+
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Pacbio_R/Inputs/SQANTI_Results"
+classification <- read.delim(file.path(Dir,"hq.5merge.collapsed_classification.filtered_lite_classification.txt"),
+                             stringsAsFactors = FALSE)
+
+```
+
+```{r}
+#correct the sample names
+colnames(classification) %<>% gsub("FL.F","FL",.)
+colnames(classification) %<>% gsub("77","7",.)
+
+classification.keep <- classification %>% 
+  dplyr::select(associated_gene,isoform,chrom,structural_category,exons,FL22,FL99,FL65,FL53,FL60,FL7)
+
+#remove single exons transcripts
+#classification.keep <- classification.keep %>% dplyr::filter(exons != 1)
+head(classification.keep)
+```
+
+```{r}
+# add the gene id
+classification.keep$Pacbio_geneID <- classification.keep$isoform %>% gsub(".[^\\.]+$","",.)
+
+classification.keep <- classification.keep %>% 
+  dplyr::select(Pacbio_geneID, associated_gene,FL22,FL99,FL65,FL53,FL60,FL7)
+
+#split classification.keep into novel and associated genes
+classification_novel <- classification.keep[(classification.keep$associated_gene %>% grep("_",.)),] #14549  
+classification_associated_gene <-  subset(classification.keep, associated_gene %!in% classification_novel$associated_gene) #361100
+
+# split novel for gene_gene and others
+novelGene <- classification_novel[grep("novelGene",classification_novel$associated_gene),]#11132
+Two_genes <- classification_novel %>% subset(associated_gene %!in% novelGene$associated_gene)#3417
+
+# split to list
+Two_genes_list <- split(Two_genes, Two_genes$Pacbio_geneID)
+
+Two_genes_list <- lapply(c(1:length(Two_genes_list)),function(x){
+  
+  # split for the same gene_gene
+  associated_gene_list <- split(Two_genes_list[[x]], Two_genes_list[[1]]$associated_gene)
+  
+  #sum for the same gene_gene and /2 since two genes involved  
+  associated_gene_list <- lapply(c(1:length(associated_gene_list)), function(a){
+    Pacbio_geneID_associated_gene <- associated_gene_list[[a]][,1:2] %>% unique()
+    sub_OUTPUT <- associated_gene_list[[a]][,-c(1:2)]
+    count_sum <- round(colSums(sub_OUTPUT)/2) %>% 
+      as.data.frame() %>% 
+      t()
+    
+  #join the ID back 
+    sub_OUTPUT <- cbind(Pacbio_geneID_associated_gene,count_sum)
+    return(sub_OUTPUT)
+  })%>% do.call("rbind",.)
+  
+  Genes <- associated_gene_list$associated_gene
+  Genes <- unlist(strsplit(Genes, "_"))
+
+  OUTPUT <- associated_gene_list
+  OUTPUT <- rbind(OUTPUT[rep(1, (length(Genes))), ])
+  OUTPUT$associated_gene <- Genes
+  
+  return(OUTPUT)
+}) %>% do.call("rbind",.)
+
+# fixed gene_gene
+head(Two_genes_list)
+
+# put into classification_associated_gene
+classification_associated_gene <- rbind(Two_genes_list,classification_associated_gene)
+
+
+# for novelGene have ENSBIXG are cosider as classification_associated_gene
+#novelGene$associated_gene[grep("ENSBIXG",novelGene$associated_gene)] %<>% gsub("novelGene_","",.)
+#novelGene$associated_gene[grep("ENSBIXG",novelGene$associated_gene)] %<>% gsub("_AS","",.)
+
+# dim(novelGene) #11132
+# novelGene[grep("ENSBIXG",novelGene$associated_gene),] %>% dim() #4760
+# novelGene[grep("novelGene",novelGene$associated_gene),] %>% dim() #6372
+
+classification_associated_gene <- rbind(novelGene[grep("ENSBIXG",novelGene$associated_gene),],classification_associated_gene)
+novelGene <- novelGene[grep("novelGene",novelGene$associated_gene),]
+
+# for novelGene in the classification_associated_gene, we assign as not real novel gene
+not_real_novelGene <- novelGene[novelGene$Pacbio_geneID %in% classification_associated_gene$Pacbio_geneID,]
+real_novelGene <- novelGene[novelGene$Pacbio_geneID %!in% classification_associated_gene$Pacbio_geneID,]
+
+# sub the classification_associated_gene and calculate the gene ID with higher frequency 
+sub <-classification_associated_gene[classification_associated_gene$Pacbio_geneID %in% novelGene$Pacbio_geneID,]
+sub <- sub[,c(1:2)]
+
+sub <- split(sub,sub$Pacbio_geneID)
+sub <- lapply(c(1:length(sub)), function(x){
+  OUTPUT <- sub[[x]][1,]
+  OUTPUT$associated_gene <- names(which.max(table(sub[[x]]$associated_gene)))
+  return(OUTPUT)
+}) %>% do.call("rbind",.)
+
+rownames(sub) <- NULL
+sub%<>%column_to_rownames("Pacbio_geneID")
+
+# fixed not real novel genes
+not_real_novelGene$associated_gene <- sub[not_real_novelGene$Pacbio_geneID,]
+classification_associated_gene <- rbind(not_real_novelGene,classification_associated_gene)
+
+# for real novel pacbio genes
+real_novelGene$associated_gene <- real_novelGene$Pacbio_geneID
+# use pacbio gene ID in associated_gene column for real novel genes
+unique(real_novelGene$associated_gene) %>% length()
+#1150
+
+saveRDS(real_novelGene,"Pacbio_novel_genes.rds")
+
+# join back the real novel gene 
+classification_associated_gene <- rbind(real_novelGene,classification_associated_gene)
+
+#saveRDS(classification_associated_gene[,c("Pacbio_geneID","associated_gene")] %>% unique,"Pacbio_ENSB_matching.rds")
+```
+
+# combine the transcripts for the same gene
+```{r}
+# for the same gene sum the counts
+classification_keep_associated_gene <- classification_associated_gene[,-1]
+classification_keep_associated_gene <- split(classification_keep_associated_gene,classification_keep_associated_gene$associated_gene)
+
+classification_keep_associated_gene <- lapply(c(1:length(classification_keep_associated_gene)), function(x){
+  associated_gene <- classification_keep_associated_gene[[x]][,1] %>% 
+    unique()
+  associated_gene <- data.frame(associated_gene = associated_gene)
+  
+  COUNT <- colSums(classification_keep_associated_gene[[x]][,-1]) %>% 
+    as.data.frame() %>% 
+    t()
+  
+  OUTPUT <- associated_gene %>% cbind(COUNT)
+  return(OUTPUT)
+}) %>% do.call("rbind",.)
+
+rownames(classification_keep_associated_gene) <- NULL
+associated_gene_counts <- classification_keep_associated_gene %>%
+  column_to_rownames("associated_gene")
+
+saveRDS(associated_gene_counts,"associated_gene_counts_with_novel_prefilter.rds")
+saveRDS(associated_gene_counts[rownames(associated_gene_counts) %>% grep("ENSBIXG",.),],"associated_gene_counts_prefilter.rds")
+```
+
+# filter for expression
+```{r}
+sel <- rowSums(cpm(associated_gene_counts) > 0.5) >= 3
+associated_gene_counts <- associated_gene_counts[sel,]
+
+saveRDS(associated_gene_counts,"associated_gene_counts_with_novel_afterfilter.rds")
+saveRDS(associated_gene_counts[rownames(associated_gene_counts) %>% grep("ENSBIXG",.),],"associated_gene_counts_afterfilter.rds")
+```
+
+```{r}
+ggplot()+
+  geom_line(data = all_rarefraction_data%>%subset(type %in% "gene"), aes(x=looper, y= as.numeric(number),  group = type.Sample, color = Sample)) +
+  theme(axis.text.y = element_blank())+
+  theme_bw() +
+  scale_color_manual(name=NULL,
+                     values=c("red3","royalblue3","green", "pink","grey","black"))+
+  labs(x = "Number of subsampled transcripts", y = "Number of genes") 
+```
+

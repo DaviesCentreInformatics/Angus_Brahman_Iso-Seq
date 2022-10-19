@@ -1,0 +1,122 @@
+---
+title: "Extract transcripts from isoseq"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(data.table)
+library(textshape)
+library(biomaRt)
+library(edgeR)
+'%!in%' <- function(x,y){!('%in%'(x,y))}
+```
+
+```{r}
+#Brahman post-SQANTI 
+Dir <- "/Users/kellydren/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Raw_data/map_to_brahman/post-SQANTI-filter/"
+classification <- read.delim(file.path(Dir,"hq.5merge.collapsed_classification.filtered_lite_classification.txt"),
+                             stringsAsFactors = FALSE)
+
+```
+
+```{r}
+classification_isoID <- classification %>%
+  subset(associated_transcript %in% "novel")
+
+classification_ENSID <- classification %>%
+  subset(associated_transcript %!in% "novel")
+
+classification_ENSID$isoform <- classification_ENSID$associated_transcript
+classification <- rbind(classification_isoID,classification_ENSID)
+```
+
+```{r}
+# correct names
+#correct the sample names
+colnames(classification) %<>% gsub("FL.F","FL",.)
+colnames(classification) %<>% gsub("77","7",.)
+
+#Remove unwanted columns
+classification.keep <- classification %>% 
+  dplyr::select(isoform,FL22,FL99,FL65,FL53,FL60,FL7)
+
+head(classification.keep)
+```
+
+```{r}
+classification.keep.isoform <- split(classification.keep,classification.keep$isoform)
+
+classification.keep.isoform <- lapply(c(1:length(classification.keep.isoform)), function(x){
+  isoform <- classification.keep.isoform[[x]][,1] %>% 
+    unique()
+  isoform <- data.frame(isoform = isoform)
+  
+  COUNT <- colSums(classification.keep.isoform[[x]][,-1]) %>% 
+    as.data.frame() %>% 
+    t()
+  
+  OUTPUT <- isoform %>% cbind(COUNT)
+  return(OUTPUT)
+}) %>% do.call("rbind",.)
+
+rownames(classification.keep.isoform) <- NULL
+classification.keep.isoform <- classification.keep.isoform %>%
+  column_to_rownames("isoform")
+
+saveRDS(classification.keep.isoform,"associated_isoform_counts_with_novel_prefilter.rds")
+saveRDS(classification.keep.isoform[rownames(classification.keep.isoform) %>% grep("ENSBIXT",.),],"associated_isoform_counts_prefilter.rds")
+```
+
+# filter
+```{r}
+sel <- rowSums(cpm(classification.keep.isoform) > 0.5) >= 3
+classification.keep.isoform <- classification.keep.isoform[sel,]
+
+saveRDS(classification.keep.isoform,"associated_isoform_counts_with_novel_afterfilter.rds")
+saveRDS(classification.keep.isoform[rownames(classification.keep.isoform) %>% grep("ENSBIXT",.),],"associated_isoform_counts_afterfilter.rds")
+```
+
+```{r}
+structural_category <- subset(classification, isoform %in% rownames(classification.keep.isoform))
+
+structural_category_plot <- table(structural_category$structural_category) %>%
+  reshape2::melt()
+structural_category_plot$value <- structural_category_plot$value/sum(structural_category_plot$value) * 100
+
+structural_category_plot$Var1 %<>% gsub("full-splice_match","FSM",.)
+structural_category_plot$Var1 %<>% gsub("incomplete-splice_match","ISM",.)
+structural_category_plot$Var1 %<>% gsub("novel_in_catalog","NIC",.)
+structural_category_plot$Var1 %<>% gsub("novel_not_in_catalog","NNC",.)
+
+structural_category_plot$Var1 <- factor(structural_category_plot$Var1, levels = c("FSM","ISM","NIC","NNC","genic","antisense","fusion","intergenic"))
+
+cbPalette <- c("#6baed5", "#fc8e5a", "#78c67a", "#ee6a50", "#969696", "#66c2a4", "#ffc125", "#e9977a")
+
+ggplot(structural_category_plot , aes(x=Var1, y=value, fill = Var1)) +
+  geom_bar(stat="identity",colour="black") +
+  scale_fill_manual(values=cbPalette) +
+  ylim(0, 100) +
+  xlab("") +
+  ylab("% Transcripts") +
+  ggtitle("Transcript distribution across structural categories", subtitle = waiver()) +
+  geom_text(aes(label = paste0(round(value,2),"%")), vjust = -0.2) +
+  theme_bw()
+```
+```{r}
+structural_category %>% subset(structural_category %in% "fusion") %>% write_csv("Isoseq_fusion_genes.csv")
+```
+
