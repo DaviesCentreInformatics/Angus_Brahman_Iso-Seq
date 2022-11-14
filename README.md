@@ -29,10 +29,10 @@ Here you will find scripts used for the paper "Long read isoform sequencing reve
 * 7_IsoSeq_transcript_TPM.Rmd: 
 *Covert the counts of trancripts to TPM values.*
 
-* 8_IsoSeq_transcript_structures.Rmd: 
+* 8.1_IsoSeq_transcript_structures.Rmd: 
 *Check the transcript structures of a few genes of interested.*
 
-* 9_IsoSeq_transcript_structures_PB.35887.Rmd: 
+* 8.2_IsoSeq_transcript_structures_PB.35887.Rmd: 
 *Check the transcript structures for gene PB.35887.*
 
 ## The scripts to analyse RNAseq data are listed in folder RNAseq_R.
