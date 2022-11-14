@@ -37,34 +37,34 @@ Here you will find scripts used for the paper "Long read isoform sequencing reve
 
 ## The scripts to analyse RNAseq data are listed in folder RNAseq_R.
 
-* 1_RNAseq_DEG_Alltissues.Rmd
+* 1_RNAseq_DEG_Alltissues.Rmd:
 *Calculate the DEG for previous all tissue data and check the concordance with current data.*
 
-* 2_RNAseq_feature_count_gene.Rmd
+* 2_RNAseq_feature_count_gene.Rmd:
 *Call genes using featurecount.*
 
-* 3_RNAseq_feature_count_transcript.Rmd
+* 3_RNAseq_feature_count_transcript.Rmd:
 *Call transcripts using featurecount.*
 
-* 4_Correlation_matrix.Rmd
+* 4_Correlation_matrix.Rmd:
 *Make the correlation matrix for gene and transcripts levels.*
 
-* 5_RNAseq_HTSEQ_DEG.Rmd
+* 5_RNAseq_HTSEQ_DEG.Rmd:
 *Call genes and calculate the DEGs using HTSEQ.*
 
-* 6_RNAseq_kallistio_DEG.Rmd
-*calculate DEGs using the genes from kallistio.*
+* 6_RNAseq_kallistio_DEG.Rmd:
+*Calculate DEGs using the genes from kallistio.*
 
-* 7_RNAseq_kallistio_DET.Rmd
-*calculate DETs using the transcripts from kallistio.*
+* 7_RNAseq_kallistio_DET.Rmd:
+*Calculate DETs using the transcripts from kallistio.*
 
-* 8_RNAseq_feature_count_DEG.Rmd
-*calculate DEGs using the gene from featurecount.*
+* 8_RNAseq_feature_count_DEG.Rmd:
+*Calculate DEGs using the gene from featurecount.*
 
-* 9_RNAseq_feature_count_DET.Rmd
-*calculate DETs using the transcripts from featurecount.*
+* 9_RNAseq_feature_count_DET.Rmd:
+*Calculate DETs using the transcripts from featurecount.*
 
-* 10_RNAseq_DTU.Rmd
+* 10_RNAseq_DTU.Rmd:
 *Calculate differentical transcript usage using DRIMSeq library with RNAseq data.*
 
 
