@@ -38,7 +38,7 @@ Here you will find scripts used for the paper "Long read isoform sequencing reve
 ## The scripts to analyse RNAseq data are listed in folder RNAseq_R.
 
 * 1_RNAseq_DEG_Alltissues.Rmd
-*Calcualte the DEG for previous all tissue data and check the concordance with current data.*
+*Calculate the DEG for previous all tissue data and check the concordance with current data.*
 
 * 2_RNAseq_feature_count_gene.Rmd
 *Call genes using featurecount.*
