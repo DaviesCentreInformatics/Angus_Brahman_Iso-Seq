@@ -53,10 +53,10 @@ Here you will find scripts used for the paper "Long read isoform sequencing reve
 *Call genes and calculate the DEGs using HTSEQ.*
 
 * 6_RNAseq_kallistio_DEG.Rmd:
-*Calculate DEGs using the genes from kallistio.*
+*Calculate DEGs using the genes from kallisto.*
 
 * 7_RNAseq_kallistio_DET.Rmd:
-*Calculate DETs using the transcripts from kallistio.*
+*Calculate DETs using the transcripts from kallisto.*
 
 * 8_RNAseq_feature_count_DEG.Rmd:
 *Calculate DEGs using the gene from featurecount.*
