@@ -1,4 +1,4 @@
-# Angus_Brahman_Isoseq
+# Long read isoform sequencing reveals hidden transcriptional complexity between cattle subspecies
 
 Here you will find scripts used for the paper "Long read isoform sequencing reveals hidden transcriptional complexity between cattle subspecies".
 
