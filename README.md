@@ -1,12 +1,12 @@
 # Angus_Brahman_Isoseq
 
-Here listed the scripts used for paper "Long read isoform sequencing reveals hidden transcriptional complexity between cattle subspecies".
+Here you will find scripts used for the paper "Long read isoform sequencing reveals hidden transcriptional complexity between cattle subspecies".
 
-## The analysis structure
+## Overview of methods
 ![Fig_S1 Flowchart](https://user-images.githubusercontent.com/25737808/196599241-727efe93-9409-446d-bfe9-4c96000fc001.png)
 
 
-## The scripts to analysis Isoseq data are listed in folder Pacbio_R.
+## The scripts to analyse Iso-Seq data are listed in folder Pacbio_R.
 
 * 1_IsoSeq_Gene.Rmd: 
 *Call genes from the Isoseq data and filter for expressed genes.*
@@ -35,7 +35,7 @@ Here listed the scripts used for paper "Long read isoform sequencing reveals hid
 * 8_IsoSeq_transcript_structures_PB.35887.Rmd: 
 *Check the transcript structures for gene PB.35887.*
 
-## The scripts to analysis RNAseq data are listed in folder RNAseq_R.
+## The scripts to analyse RNAseq data are listed in folder RNAseq_R.
 
 * 1_RNAseq_DEG_Alltissues.Rmd
 *Calcualte the DEG for previous all tissue data and check the concordance with current data.*
