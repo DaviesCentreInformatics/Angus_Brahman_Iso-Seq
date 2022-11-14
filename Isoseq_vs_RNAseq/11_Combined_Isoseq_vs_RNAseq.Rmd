@@ -1,0 +1,291 @@
+---
+title: "Compare the DEG and DET lists"
+author: "Kelly Ren"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::html_document2: default
+bibliography: FinalthesisRef.bib
+link-citations: yes
+fig_caption: yes
+toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(readr)
+library(ggplot2)
+library(biomaRt)
+library(UpSetR)
+library(ThreeDRNAseq)
+library(ggVennDiagram)
+```
+
+# expressed genes
+
+```{r}
+RfeatureCounts_gene_results_afterfilter <- readRDS("RfeatureCounts_gene_results_afterfilter.rds")
+associated_gene_counts_with_novel_afterfilter <- readRDS("associated_gene_counts_with_novel_afterfilter.rds")
+venn_list <- list(isoseq_expressed_gene = rownames(associated_gene_counts_with_novel_afterfilter),
+     RNAseq_expressed_gene = rownames(RfeatureCounts_gene_results_afterfilter$counts))
+
+ggVennDiagram(venn_list, label = "count")
+```
+
+```{r}
+kallisto_transcript_TPM <- readRDS("kallisto_transcript_TPM.rds") %>% as.data.frame()
+# filter the TPM
+kallisto_transcript_TPM <- kallisto_transcript_TPM[TPM.filter(kallisto_transcript_TPM,sample.n = 3, tpm.cut = 1),]
+
+venn_list$kallisto_expressed_gene  <- rownames(kallisto_transcript_TPM) %>% gsub("\\.[^\\.]+$","",.) %>% unique()
+
+ggVennDiagram(venn_list[c(1,3)], label = "count")
+```
+
+# compare between the results of DEG for Iso_seq and RNA_seq
+```{r}
+setwd("~/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Lloyd_RNAseq_cattle_R")
+
+LIST_DEG_results <- list()
+
+LIST_DEG_results[[1]]  <- read_tsv("IsoSeq_significant_with_novel_DEG_0.05.tsv")
+LIST_DEG_results[[2]]  <- read_tsv("IsoSeq_significant_without_novel_DEG_0.05.tsv") 
+
+LIST_DEG_results[[3]]  <- read_tsv("RfeatureCounts_significant_with_novel_DEG_0.05.tsv")
+LIST_DEG_results[[4]]  <- read_tsv("RfeatureCounts_significant_without_novel_DEG_0.05.tsv")
+
+LIST_DEG_results[[5]] <- read_tsv("sleuth_significant_DEG_0.05.tsv")
+```
+
+
+```{r}
+All_up_DEG <- c(LIST_DEG_results[[1]]$gene_id, LIST_DEG_results[[3]]$gene_id) %>%
+  unique() %>%
+  as.data.frame() %>%
+  set_colnames("DGE_ID")
+
+All_up_DEG <- All_up_DEG %>% 
+  left_join(LIST_DEG_results[[1]][,c("gene_id","AveExpr")], by = c("DGE_ID" = "gene_id")) %>%
+left_join(LIST_DEG_results[[3]][,c("gene_id","AveExpr")], by = c("DGE_ID" = "gene_id")) %>%
+  set_colnames(c("DGE_ID","AveExpr_IsoSeq","AveExpr_RNASeq_count"))
+
+All_up_DEG$Group[is.na(All_up_DEG$AveExpr_IsoSeq)] <- 0
+All_up_DEG$Group[!is.na(All_up_DEG$AveExpr_IsoSeq)] <- 1
+
+All_up_DEG$Group[is.na(All_up_DEG$AveExpr_RNASeq_count)] <- All_up_DEG$Group[is.na(All_up_DEG$AveExpr_RNASeq_count)] - 1
+All_up_DEG$Group[!is.na(All_up_DEG$AveExpr_RNASeq_count)] <- All_up_DEG$Group[!is.na(All_up_DEG$AveExpr_RNASeq_count)] + 1
+
+All_up_DEG_plot <- melt(All_up_DEG[,c(1:3)]) %>%
+  left_join(All_up_DEG[,c(1,4)])
+
+All_up_DEG_plot$Group <- as.factor(All_up_DEG_plot$Group)
+ggplot(subset(All_up_DEG_plot,variable %in% "AveExpr_RNASeq_count"), aes(x=Group, y=value, fill = Group)) + 
+  geom_dotplot(binaxis = "y", 
+               stackdir = "centerwhole", 
+               method="dotdensity",
+               stackgroups = T,
+               binpositions="all") +
+  xlab("Common")+
+  ylab("AveExpr")+
+  ggtitle("DEG identified in RNAseq only or identified in both RNAseq and Isoseq", subtitle = waiver()) +
+  theme_bw() 
+```
+
+```{r}
+All_up_DEG_plot$Group <- as.factor(All_up_DEG_plot$Group)
+ggplot(subset(All_up_DEG_plot,variable %in% "AveExpr_IsoSeq"), aes(x=Group, y=value, fill = Group)) + 
+  geom_dotplot(binaxis = "y", 
+               stackdir = "centerwhole", 
+               method="dotdensity",
+               stackgroups = T,
+               binpositions="all") +
+  xlab("Common")+
+  ylab("AveExpr")+
+  ggtitle("DEG identified in IsoSeq only or identified in both RNAseq and Isoseq", subtitle = waiver()) +
+  theme_bw() +
+  scale_y_continuous(breaks = seq(0,5,10))
+```
+```{r}
+# DEG IN BOTH
+DEG_both_RNAseq_Isoseq <- subset(All_up_DEG_plot,variable %in% "AveExpr_IsoSeq") %>% subset(Group %in% "2") %>% extract2("DGE_ID") %>% unique()
+
+# DEG IN Isoseq_only
+DEG_Isoseq_only <- subset(All_up_DEG_plot,variable %in% "AveExpr_IsoSeq") %>% subset(Group %in% "0") %>% extract2("DGE_ID") %>% unique()
+
+# DEG IN Isoseq_only
+DEG_RNAseq_only <- subset(All_up_DEG_plot,variable %in% "AveExpr_RNASeq_count") %>% subset(Group %in% "1") %>% extract2("DGE_ID") %>% unique()
+
+# Find the coordinates of those genes
+Bos_indicus_hybrid.UOA_Brahman_1.104 <- rtracklayer::import('Bos_indicus_hybrid.UOA_Brahman_1.104.gtf') %>%
+  as.data.frame() %>%
+  subset(type %in% "gene")
+
+# coordinates for DEG in both in RNAseq and Isoseq
+DEG_both_RNAseq_Isoseq <- Bos_indicus_hybrid.UOA_Brahman_1.104 %>%
+  subset(gene_id %in% DEG_both_RNAseq_Isoseq) %>%
+  dplyr::select(seqnames,start,end,gene_id,gene_name)
+
+# coordinates for DEG in Isoseq
+DEG_Isoseq_only <- Bos_indicus_hybrid.UOA_Brahman_1.104 %>%
+  subset(gene_id %in% DEG_Isoseq_only) %>%
+  dplyr::select(seqnames,start,end,gene_id,gene_name)
+
+# coordinates for DEG in RNAseq
+DEG_RNAseq_only <- Bos_indicus_hybrid.UOA_Brahman_1.104 %>%
+  subset(gene_id %in% DEG_RNAseq_only) %>%
+  dplyr::select(seqnames,start,end,gene_id,gene_name)
+
+write_tsv(DEG_both_RNAseq_Isoseq,"DEG_both_RNAseq_Isoseq_coordinates.tsv")
+write_tsv(DEG_Isoseq_only,"DEG_Isoseq_only_coordinates.tsv")
+write_tsv(DEG_RNAseq_only,"DEG_RNAseq_only_coordinates.tsv")
+
+
+```
+
+```{r}
+All_up_DEG <- c(LIST_DEG_results[[1]]$gene_id, LIST_DEG_results[[3]]$gene_id, LIST_DEG_results[[5]]$target_id) %>%
+  unique() %>%
+  as.data.frame() %>%
+  set_colnames("DGE_ID")
+
+All_up_DEG <- All_up_DEG %>% 
+  left_join(LIST_DEG_results[[1]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+left_join(LIST_DEG_results[[3]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+  left_join(LIST_DEG_results[[5]][,c("target_id","pval")], by = c("DGE_ID" = "target_id")) %>%
+  set_colnames(c("DGE_ID","pval_IsoSeq","pval_RNASeq_count","pval_RNASeq_TPM"))
+
+All_up_DEG$Group[is.na(All_up_DEG$pval_IsoSeq)] <- 0
+All_up_DEG$Group[!is.na(All_up_DEG$pval_IsoSeq)] <- 1
+
+All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_count)] <- All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_count)] + 1
+All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_TPM)] <- All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_TPM)] + 1
+
+
+All_up_DEG_plot <- melt(All_up_DEG[,c(1:4)]) %>%
+  left_join(All_up_DEG[,c(1,5)])
+
+All_up_DEG_plot$Group <- as.factor(All_up_DEG_plot$Group)
+ggplot(All_up_DEG_plot, aes(x=Group, y=value, fill = variable)) + 
+  geom_dotplot(binaxis='y', stackdir='center') +
+  xlab("Common")+
+  ylab("p-values")+
+  ggtitle("Commom DEG of up regulation", subtitle = waiver()) +
+  theme_bw()
+```
+```{r}
+setwd("~/Documents/Kelly_2021/Research/Lloyd_PacBio_ILMN_quantification/Lloyd_RNAseq_cattle_R")
+
+LIST_DEG_results <- list()
+
+LIST_DEG_results[[1]]  <- read_tsv("IsoSeq_significant_with_novel_DEG_0.05.tsv") %>% subset(regulation %in% "down")
+LIST_DEG_results[[2]]  <- read_tsv("IsoSeq_significant_without_novel_DEG_0.05.tsv") %>% subset(regulation %in% "down")
+
+LIST_DEG_results[[3]]  <- read_tsv("RfeatureCounts_significant_with_novel_DEG_0.05.tsv") %>% subset(regulation %in% "down")
+LIST_DEG_results[[4]]  <- read_tsv("RfeatureCounts_significant_without_novel_DEG_0.05.tsv") %>% subset(regulation %in% "down")
+
+LIST_DEG_results[[5]] <- read_tsv("sleuth_significant_DEG_0.05.tsv") %>% subset(regulation %in% "FALSE")
+```
+
+```{r}
+All_down_DEG <- c(LIST_DEG_results[[1]]$gene_id, LIST_DEG_results[[3]]$gene_id, LIST_DEG_results[[5]]$target_id) %>%
+  unique() %>%
+  as.data.frame() %>%
+  set_colnames("DGE_ID")
+
+All_down_DEG <- All_down_DEG %>% 
+  left_join(LIST_DEG_results[[1]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+left_join(LIST_DEG_results[[3]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+  left_join(LIST_DEG_results[[5]][,c("target_id","pval")], by = c("DGE_ID" = "target_id")) %>%
+  set_colnames(c("DGE_ID","pval_IsoSeq","pval_RNASeq_count","pval_RNASeq_TPM"))
+
+All_down_DEG$Group[is.na(All_down_DEG$pval_IsoSeq)] <- 0
+All_down_DEG$Group[!is.na(All_down_DEG$pval_IsoSeq)] <- 1
+
+All_down_DEG$Group[!is.na(All_down_DEG$pval_RNASeq_count)] <- All_down_DEG$Group[!is.na(All_down_DEG$pval_RNASeq_count)] + 1
+All_down_DEG$Group[!is.na(All_down_DEG$pval_RNASeq_TPM)] <- All_down_DEG$Group[!is.na(All_down_DEG$pval_RNASeq_TPM)] + 1
+
+
+All_down_DEG_plot <- melt(All_down_DEG[,c(1:4)]) %>%
+  left_join(All_down_DEG[,c(1,5)])
+
+All_down_DEG_plot$Group <- as.factor(All_down_DEG_plot$Group)
+ggplot(All_down_DEG_plot, aes(x=Group, y=value, fill = variable)) + 
+  geom_dotplot(binaxis='y', stackdir='center') +
+  xlab("Common")+
+  ylab("p-values")+
+  ggtitle("Commom DEG of down regulation", subtitle = waiver()) +
+  theme_bw()
+```
+
+# expressed transcript
+
+```{r}
+RfeatureCounts_transcript_results_afterfilter <- readRDS("RfeatureCounts_transcript_results_afterfilter.rds")
+associated_transcript_counts_with_novel_afterfilter <- readRDS("associated_isoform_counts_with_novel_afterfilter.rds")
+
+venn_list <- list(isoseq_expressed_transcript = rownames(associated_transcript_counts_with_novel_afterfilter),
+     RNAseq_expressed_transcript = rownames(RfeatureCounts_transcript_results_afterfilter))
+
+ggVennDiagram(venn_list, label = "count")
+```
+
+```{r}
+kallisto_transcript_TPM <- readRDS("kallisto_transcript_TPM.rds") %>% as.data.frame()
+# filter the TPM
+kallisto_transcript_TPM <- kallisto_transcript_TPM[TPM.filter(kallisto_transcript_TPM,sample.n = 3, tpm.cut = 1),]
+
+venn_list$kallisto_expressed_transcript <- rownames(kallisto_transcript_TPM)
+
+ggVennDiagram(venn_list[c(1,3)], label = "count")
+```
+
+# compare between the results of DET for Iso_seq and RNA_seq
+```{r}
+LIST_DET_results <- list()
+
+LIST_DET_results[[1]]  <- read_tsv("IsoSeq_significant_with_novel_DET_0.05.tsv") %>% subset(regulation %in% "up")
+LIST_DET_results[[2]]  <- read_tsv("IsoSeq_significant_without_novel_DET_0.05.tsv") %>% subset(regulation %in% "up")
+
+LIST_DET_results[[3]]  <- read_tsv("RfeatureCounts_significant_with_novel_DET_0.05.tsv") %>% subset(regulation %in% "up")
+LIST_DET_results[[4]]  <- read_tsv("RfeatureCounts_significant_without_novel_DET_0.05.tsv") %>% subset(regulation %in% "up")
+
+LIST_DET_results[[5]] <- read_tsv("sleuth_significant_DET_0.05.tsv") %>% 
+  subset(b > 0)
+
+```
+
+```{r}
+All_up_DET <- c(LIST_DET_results[[1]]$gene_id, LIST_DET_results[[3]]$gene_id, LIST_DET_results[[5]]$target_id) %>%
+  unique() %>%
+  as.data.frame() %>%
+  set_colnames("DGT_ID")
+
+All_up_DEG <- All_up_DEG %>% 
+  left_join(LIST_DET_results[[1]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+left_join(LIST_DET_results[[3]][,c("gene_id","P.Value")], by = c("DGE_ID" = "gene_id")) %>%
+  left_join(LIST_DET_results[[5]][,c("target_id","pval")], by = c("DGE_ID" = "target_id")) %>%
+  set_colnames(c("DGE_ID","pval_IsoSeq","pval_RNASeq_count","pval_RNASeq_TPM"))
+
+All_up_DEG$Group[is.na(All_up_DEG$pval_IsoSeq)] <- 0
+All_up_DEG$Group[!is.na(All_up_DEG$pval_IsoSeq)] <- 1
+
+All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_count)] <- All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_count)] + 1
+All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_TPM)] <- All_up_DEG$Group[!is.na(All_up_DEG$pval_RNASeq_TPM)] + 1
+
+
+All_up_DEG_plot <- melt(All_up_DEG[,c(1:4)]) %>%
+  left_join(All_up_DEG[,c(1,5)])
+
+ggplot(All_up_DEG_plot, aes(x=value, y=Group, fill = variable)) + 
+  geom_dotplot(binaxis='y', stackdir='center') +
+  theme_bw()
+```
+
+
+
+
