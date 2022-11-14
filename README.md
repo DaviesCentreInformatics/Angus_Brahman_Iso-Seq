@@ -68,13 +68,13 @@ Here you will find scripts used for the paper "Long read isoform sequencing reve
 *Calculate differentical transcript usage using DRIMSeq library with RNAseq data.*
 
 
-## The scripts to compare and combine Isoseq and RNAseq data are listed in folder Isose_vs_RNAseq.
+## The scripts to compare and combine Isoseq and RNAseq data are listed in folder Isoseq_vs_RNAseq.
 
-* The sctipt IsoSeq_rarefraction.R was used to check the sequencing depths for both datasets.
+* The script IsoSeq_rarefraction.R was used to check the sequencing depths for both datasets.
 
 
 * 11_Combined_Isoseq_vs_RNAseq.Rmd:
-*Compare the genes and transcripts indentified from Isoseq and RNaseq data.*
+*Compare the genes and transcripts identified from Isoseq and RNaseq data.*
 
 * 12_Combined_upset_plot.Rmd:
 *Make the upset plots for DEGs in different groups.*
